@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Media Wellbeing</string>
+    <string name="accessibility_permission_description">This app uses this permission to monitor the activities being carrier out within certain apps</string>
 </resources>
