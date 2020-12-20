@@ -73,11 +73,12 @@ public class TestService extends AccessibilityService {
                     200,
                     200,
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                    PixelFormat.TRANSLUCENT
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                    PixelFormat.TRANSPARENT
             );
 //            newViewParams.alpha = 100;
-            windowManager.addView(new RelativeLayout(getApplicationContext()), newViewParams);
+//            windowManager.addView(new RelativeLayout(getApplicationContext()), newViewParams);
             Log.d(TAG, "TestService#onCreate setWindow");
         } catch (Exception e) {
             Log.d(TAG, e.toString());
