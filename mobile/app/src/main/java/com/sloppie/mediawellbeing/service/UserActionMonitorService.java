@@ -102,7 +102,7 @@ public class UserActionMonitorService extends AccessibilityService {
 //            windowManager.addView(new RelativeLayout(getApplicationContext()), newViewParams);
             Log.d(TAG, "TestService#onCreate setWindow");
             // create ForeGround Service
-            Intent monitorServiceIntent = new Intent(getApplicationContext(), MonitorService.class);
+            Intent monitorServiceIntent = new Intent(getApplicationContext(), ContentFilteringService.class);
             ComponentName serviceComponentName = startService(monitorServiceIntent);
 
             if (serviceComponentName != null) {

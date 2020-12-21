@@ -18,6 +18,7 @@ import androidx.core.app.NotificationCompat;
 import com.sloppie.mediawellbeing.R;
 import com.sloppie.mediawellbeing.receiver.ActiveDisplayBroadcastReceiver;
 
+
 /**
  * This Service is started to allow the application to monitor a screen. This, ideally, is called
  * once the ever running Service (that monitors the actions being carried out in the system)
@@ -40,16 +41,15 @@ import com.sloppie.mediawellbeing.receiver.ActiveDisplayBroadcastReceiver;
  * filter placed. As such, this Service requires access to an interface that is updated on the
  * status of each View and when the coordinates should be removed.
  */
-public class MonitorService extends Service {
+public class ContentFilteringService extends Service {
     public static String TAG = "com.sloppie.mediawellbeing.service:MonitorService";
+    public static final int NOTIFICATION_ID = 101;
 
     @Override
     public void onCreate() {
         super.onCreate();
         // register a broadcast receiver
         ActiveDisplayBroadcastReceiver adbr = new ActiveDisplayBroadcastReceiver();
-
-
 
         // start the service as a FOREGROUND_SERVICE
         NotificationCompat.Builder monitorNotification = new NotificationCompat.Builder(
@@ -64,7 +64,7 @@ public class MonitorService extends Service {
                 .setSound(null)
                 .setVibrate(null);
         // start the service
-        startForeground(1, monitorNotification.build());
+        startForeground(NOTIFICATION_ID, monitorNotification.build());
         Log.d(TAG, "Foreground Service started");
     }
 
@@ -95,11 +95,14 @@ public class MonitorService extends Service {
                     screenPoints.y,
                     OVERLAY_TYPE,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
-                    PixelFormat.TRANSPARENT);
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
+                    WindowManager.LayoutParams.FLAG_DIM_BEHIND,
+                    PixelFormat.TRANSLUCENT);
+
+            View rootView = new View(getBaseContext());
 
             try {
-                windowManager.addView(new View(getBaseContext()), overlayParams);
+                windowManager.addView(rootView, overlayParams);
                 Log.d(TAG, "Overlay added");
             } catch (Exception e) {
                 Log.d(TAG, e.toString());
@@ -107,7 +110,6 @@ public class MonitorService extends Service {
             }
             // handle all the data
             // start as a foreground service
-
         }
         return super.onStartCommand(intent, flags, startId);
     }

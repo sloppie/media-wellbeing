@@ -9,7 +9,10 @@ public class MainApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        // create the NotificationChannels to be used in the application
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // MonitorService - channel that shows notification for the Monitor ForegroundService
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             String CHANNEL_ID = "MonitorService";
             CharSequence monitorChannelName = getString(R.string.monitor_channel_name);
