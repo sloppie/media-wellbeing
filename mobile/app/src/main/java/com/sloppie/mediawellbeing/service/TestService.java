@@ -31,7 +31,7 @@ public class TestService extends AccessibilityService {
 
         @Override
         public String getKey() {
-            return null;
+            return key;
         }
     }
 
