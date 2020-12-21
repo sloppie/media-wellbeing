@@ -1,13 +1,17 @@
 package com.sloppie.mediawellbeing;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Context;
+import android.content.Intent;
 import android.hardware.display.DisplayManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.Display;
 import android.view.Surface;
@@ -47,9 +51,20 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.d(getPackageName() + ":AccessibilityService", e.toString());
         }
+
+        // ask for overlay permissions
+        if (!Settings.canDrawOverlays(this)) {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName()));
+            startActivityForResult(intent, 0);
+        }
     }
 
     public void button1Click(View view) {
-        Log.d(getPackageName() + ":AccessibilityService", "Pressed!");
+        Log.d(getPackageName(), "Pressed!");
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
     }
 }
