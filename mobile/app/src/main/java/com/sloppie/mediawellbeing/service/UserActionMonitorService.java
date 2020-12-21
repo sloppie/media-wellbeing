@@ -19,9 +19,13 @@ import com.sloppie.mediawellbeing.receiver.ActiveDisplayBroadcastReceiver;
 import com.sloppie.mediawellbeing.util.BaseDataStructure;
 import com.sloppie.mediawellbeing.util.HybridStack;
 
-public class TestService extends AccessibilityService {
+public class UserActionMonitorService extends AccessibilityService {
     static String TAG = "com.sloppie.mediawellbeing.service:AccessibilityService";
 
+    /**
+     * This class is used to wrap the the package name to allow for it to be used in the data
+     * manipulation utilities being used in the application.
+     */
     static public class MonitoredApp implements BaseDataStructure<String> {
         final String key;
 

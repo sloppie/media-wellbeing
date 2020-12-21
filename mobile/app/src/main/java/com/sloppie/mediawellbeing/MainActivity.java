@@ -4,23 +4,13 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.accessibilityservice.AccessibilityService;
-import android.content.Context;
 import android.content.Intent;
-import android.hardware.display.DisplayManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
-import android.view.Display;
-import android.view.Surface;
-import android.view.SurfaceControl;
-import android.view.SurfaceView;
 import android.view.View;
-import android.view.accessibility.AccessibilityNodeInfo;
-
-import com.sloppie.mediawellbeing.service.TestService;
 
 public class MainActivity extends AppCompatActivity {
 

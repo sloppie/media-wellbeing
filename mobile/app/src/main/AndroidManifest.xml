@@ -21,7 +21,7 @@
             </intent-filter>
         </activity>
         <service
-            android:name=".service.TestService"
+            android:name=".service.UserActionMonitorService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:description="@string/accessibility_permission_description">
             <intent-filter>
