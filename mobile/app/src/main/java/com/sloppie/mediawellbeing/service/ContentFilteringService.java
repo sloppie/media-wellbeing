@@ -8,6 +8,7 @@ import android.content.IntentFilter;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -19,6 +20,7 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.core.app.NotificationCompat;
@@ -52,7 +54,7 @@ import com.sloppie.mediawellbeing.service.util.NodeTraverser;
  */
 public class ContentFilteringService extends Service implements FilterService,
         FilterService.OverlayUpdater {
-    public static String TAG = "com.sloppie.mediawellbeing.service:MonitorService";
+    public static String TAG = "com.sloppie.mediawellbeing.service:ContentFilteringService";
     public static final int NOTIFICATION_ID = 101;
 
     WindowManager windowManager = null;
@@ -61,6 +63,8 @@ public class ContentFilteringService extends Service implements FilterService,
     RelativeLayout relativeLayout = null;
 
     private int UPDATE_ID = 1;
+    private Handler myHandler;
+    private Handler relativeLayoutHandler = null;
 
     @Override
     public void onCreate() {
@@ -93,52 +97,98 @@ public class ContentFilteringService extends Service implements FilterService,
     public int onStartCommand(Intent intent, int flags, int startId) {
         // null safety if the process is being recreated
         // TODO: spawn PRODUCER/CONSUMER threads to help with the monitoring
-        Handler myHandler = new Handler(Looper.getMainLooper());
-        myHandler.post(() -> {
-            if (intent != null) {
-                // get window manager
-                windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
 
-                // get screen dimensions from active window display
-                Point screenPoints = new Point();
-                getDisplay().getRealSize(screenPoints);
+        // this handler makes sure that the operations are carried out on the main thread
+        myHandler = new Handler(Looper.getMainLooper()) {
+            @Override
+            public void handleMessage(@NonNull Message msg) {
+                super.handleMessage(msg);
+                if (msg.arg1 == 1) {
+                    try {
+                        windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+                        windowManager.addView(relativeLayout, windowLayoutParams);
+                        Log.d(TAG, "Layout Updated");
+                    } catch (Exception e) {
+                        Log.d(TAG, e.toString());
+                        relativeLayout = new RelativeLayout(getBaseContext());
+                        windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+                        windowManager.addView(relativeLayout, windowLayoutParams);
+                        Log.d(TAG, "Layout Updated");
+                    }
+                } else if (msg.arg1 == 2) {
+                    if (relativeLayout == null) {
+                        relativeLayout = new RelativeLayout(getBaseContext());
+                    }
+                } else if (msg.arg1 == 3) {
+                    // TODO: test whether that now they are all on the main thread, one can use RelativeLayout#updateViewLayout instead of having to create a new one
+                    relativeLayout = new RelativeLayout(getBaseContext());
+                } else if (msg.arg1 == 4) {
+                    View newView = new View(getBaseContext());
+                    Bundle layoutParamsBundle = msg.getData();
+                    int width = layoutParamsBundle.getInt("width");
+                    int height = layoutParamsBundle.getInt("height");
+                    int x = layoutParamsBundle.getInt("x");
+                    int y = layoutParamsBundle.getInt("y");
 
-                // create an based on the android OS version, this is because the SYSTEM_OVERLAY
-                // version does not work for versions later than O, thus all devices Supported have to
-                // be taken into consideration.
-                int OVERLAY_TYPE = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ?
-                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:
-                        WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
+                    RelativeLayout.LayoutParams rlp =
+                            new RelativeLayout.LayoutParams(width, height);
+                    rlp.leftMargin = x;
+                    rlp.topMargin = y;
 
-                // the FLAG_NOT_TOUCHABLE together with the FLAG_NOT_FOCUSABLE allow for the overlay to
-                // pass all its interactions to the underlying window.
-                windowLayoutParams = new WindowManager.LayoutParams(
-                        screenPoints.x,
-                        screenPoints.y,
-                        OVERLAY_TYPE,
-                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
-                                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
-                                WindowManager.LayoutParams.FLAG_DIM_BEHIND,
-                        PixelFormat.TRANSLUCENT);
-
-                windowLayoutParams.dimAmount = 0.0f;
-
-                rootView = new View(getBaseContext());
-
-                relativeLayout = new RelativeLayout(getBaseContext());
-
-                try {
-                    windowManager.addView(relativeLayout, windowLayoutParams);
-                    Log.d(TAG, "Overlay added");
-                } catch (Exception e) {
-                    Log.d(TAG, e.toString());
-                    Toast.makeText(
-                            getBaseContext(),
-                            "Permission to display over other apps required",
-                            Toast.LENGTH_SHORT).show();
+                    relativeLayout.addView(newView, rlp);
                 }
             }
-        });
+        };
+
+        if (intent != null) {
+            // get window manager
+            windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+
+            // get screen dimensions from active window display
+            Point screenPoints = new Point();
+            getDisplay().getRealSize(screenPoints);
+
+            // create an based on the android OS version, this is because the SYSTEM_OVERLAY
+            // version does not work for versions later than O, thus all devices Supported have to
+            // be taken into consideration.
+            int OVERLAY_TYPE = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ?
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:
+                    WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
+
+            // the FLAG_NOT_TOUCHABLE together with the FLAG_NOT_FOCUSABLE allow for the overlay to
+            // pass all its interactions to the underlying window.
+            windowLayoutParams = new WindowManager.LayoutParams(
+                    screenPoints.x,
+                    screenPoints.y,
+                    OVERLAY_TYPE,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
+                            WindowManager.LayoutParams.FLAG_DIM_BEHIND,
+                    PixelFormat.TRANSLUCENT);
+
+            windowLayoutParams.dimAmount = 0.0f;
+
+            rootView = new View(getBaseContext());
+
+//            relativeLayout = new RelativeLayout(getBaseContext());
+            Message msg = myHandler.obtainMessage();
+            msg.arg1 = 2;
+            myHandler.sendMessage(msg);
+
+            try {
+                Message myMessage = myHandler.obtainMessage();
+                myMessage.arg1 = 1;
+                myHandler.sendMessage(myMessage);
+//                windowManager.addView(relativeLayout, windowLayoutParams);
+                Log.d(TAG, "Overlay added");
+            } catch (Exception e) {
+                Log.d(TAG, e.toString());
+                Toast.makeText(
+                        getBaseContext(),
+                        "Permission to display over other apps required",
+                        Toast.LENGTH_SHORT).show();
+            }
+        }
 
         return super.onStartCommand(intent, flags, startId);
     }
@@ -153,13 +203,14 @@ public class ContentFilteringService extends Service implements FilterService,
     public synchronized void updateWindowManager(int UPDATE_ID) {
         if (UPDATE_ID == this.UPDATE_ID) {
             try {
-                Handler myHandler = new Handler(Looper.getMainLooper());
-
-                myHandler.post(() -> {
-                    windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-                    windowManager.addView(relativeLayout, windowLayoutParams);
-                    Log.d(TAG, "Layout Updated");
-                });
+                Message message = myHandler.obtainMessage();
+                message.arg1 = 1;
+                myHandler.sendMessage(message);
+//                myHandler.post(() -> {
+//                    windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+//                    windowManager.addView(relativeLayout, windowLayoutParams);
+//                    Log.d(TAG, "Layout Updated");
+//                });
             } catch (Exception e) {
                 Log.d(TAG, e.toString());
             }
@@ -168,9 +219,18 @@ public class ContentFilteringService extends Service implements FilterService,
 
     @Override
     public synchronized void updateRelativeLayout(
-            View newView, RelativeLayout.LayoutParams viewLayoutParams, int UPDATE_ID) {
+            int width, int height, int x, int y, int UPDATE_ID) {
         if (UPDATE_ID == this.UPDATE_ID) {
-            relativeLayout.addView(newView, viewLayoutParams);
+            Bundle extraData = new Bundle();
+            extraData.putInt("width", width);
+            extraData.putInt("height", height);
+            extraData.putInt("x", x);
+            extraData.putInt("y", y);
+
+            Message msg = myHandler.obtainMessage();
+            msg.arg1 = 4;
+            msg.setData(extraData);
+            myHandler.sendMessage(msg);
         }
     }
 
@@ -179,7 +239,10 @@ public class ContentFilteringService extends Service implements FilterService,
         // spawn threads to traverse node
         UPDATE_ID++; // increase the update ID before spawining the threads
         // create a new RelativeLayout for the updated window
-        relativeLayout.removeAllViews();
+        Message msg = myHandler.obtainMessage();
+        msg.arg1 = 3;
+        myHandler.sendMessage(msg);
+//        relativeLayout.removeAllViews();
         NodeTraverser nodeTraverser = new NodeTraverser(this, rootNode, UPDATE_ID);
         Thread traverserThread = new Thread(nodeTraverser);
         traverserThread.start();

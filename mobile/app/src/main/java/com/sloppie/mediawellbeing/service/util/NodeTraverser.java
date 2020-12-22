@@ -68,7 +68,7 @@ public class NodeTraverser implements Runnable {
                 Log.d(TAG, imageViewBounds.toShortString());
 
                 // update the relative layout
-                filterService.updateRelativeLayout(newImageViewContainer, rlp, UPDATE_ID);
+                filterService.updateRelativeLayout(width, height, x, y, UPDATE_ID);
 
                 // issue a complete signal to parent
                 parent.childThreadComplete();
@@ -98,7 +98,7 @@ public class NodeTraverser implements Runnable {
 
             THREAD_SPAWN_COMPLETE = true;
         } catch (Exception e) {
-            Log.d(TAG, e.toString());
+            Log.d(TAG, "HERE: " + e.toString());
         }
     }
 

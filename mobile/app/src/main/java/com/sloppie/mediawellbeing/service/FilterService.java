@@ -24,12 +24,14 @@ public interface FilterService {
      * This method is used to update the RelativeLayout that is contained in the WindowManager
      * before the WindowManager itself is updated. This method is made thread safe to prevent
      * unsynchronized thread access to this method.
-     * @param newView this is the new View that is being added to the RelativeLayout
-     * @param viewLayoutParams this are the params that will position the view
-     * @param UPDATE_ID this is the ID related to this RelativeLayout update
+     * @param width the width to be used in LayoutParams
+     * @param height the height to be used in LayoutParams
+     * @param x the leftMargin to be used in LayoutParams
+     * @param y the topMargin to be used in LayoutParams
+     * @param UPDATE_ID this is the UPDATE_ID corresponding to these threads
      */
     void updateRelativeLayout(
-            View newView, RelativeLayout.LayoutParams viewLayoutParams, int UPDATE_ID);
+            int width, int height, int x, int y, int UPDATE_ID);
 
     /**
      * This method exposes the {@link android.app.Service#getBaseContext()} to the Threads
