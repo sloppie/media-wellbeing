@@ -6,8 +6,10 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.os.Build;
 import android.util.Log;
+import android.util.Size;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -21,6 +23,20 @@ import com.sloppie.mediawellbeing.util.HybridStack;
 
 public class UserActionMonitorService extends AccessibilityService {
     static String TAG = "com.sloppie.mediawellbeing.service:AccessibilityService";
+
+    // this string is used as the Key to pass the rootNode as a parcelable to the BroadcastReceiver
+    public static final String ROOT_NODE_INFO =
+            "com.sloppie.mediawellbeing.UserActionMonitorService.ROOT_NODE_INFO";
+
+    // this string stores the action that will be in a broadcast to make sure that the service is
+    // closed if the active app is not among the monitored apps.
+    public static final String CLOSE_FOREGROUND_SERVICE =
+            "com.sloppie.mediawellbeing.UserActionMonitorService.CLOSE_FOREGROUND_SERVICE";
+
+    // this action is used to notify that the overlay being used should be updated as the the
+    // window has changed
+    public static final String UPDATE_OVERLAY =
+            "com.sloppie.mediawellbeing.UserActionMonitorService.UPDATE_OVERLAY";
 
     /**
      * This class is used to wrap the the package name to allow for it to be used in the data
@@ -60,12 +76,10 @@ public class UserActionMonitorService extends AccessibilityService {
         AccessibilityNodeInfo accessibilityNodeInfo = event.getSource();
 
         AccessibilityNodeInfo rootView = this.getRootInActiveWindow();
-        // traverse rootView
-        try {
-
-        } catch (Exception e) {
-            Log.d(TAG, e.toString());
-        }
+        Intent activeDisplayIntent =
+                new Intent(UPDATE_OVERLAY);
+        activeDisplayIntent.putExtra(ROOT_NODE_INFO, rootView);
+        sendBroadcast(activeDisplayIntent);
     }
 
     @Override
@@ -81,37 +95,19 @@ public class UserActionMonitorService extends AccessibilityService {
         // test app packages
         nodeInfo.packageNames = new String[] {"com.spotify.music", "com.whatsapp"};
         nodeInfo.feedbackType = AccessibilityServiceInfo.FEEDBACK_VISUAL;
-        this.setServiceInfo(nodeInfo);
+        setServiceInfo(nodeInfo);
         Log.d(TAG, "Service Connected");
+
         try {
             Toast.makeText(getApplicationContext(), "This is a test toast", Toast.LENGTH_LONG).show();
-            Log.d(TAG, "TestService#onCreate ran");
-            WindowManager windowManager =
-                    (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-            WindowManager.LayoutParams newViewParams = new WindowManager.LayoutParams(
-                    300,
-                    400,
-                    200,
-                    200,
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
-                    PixelFormat.TRANSPARENT
-            );
-//            newViewParams.alpha = 100;
-//            windowManager.addView(new RelativeLayout(getApplicationContext()), newViewParams);
-            Log.d(TAG, "TestService#onCreate setWindow");
-            // create ForeGround Service
+
+            // create Foreground Service
             Intent monitorServiceIntent = new Intent(getApplicationContext(), ContentFilteringService.class);
             ComponentName serviceComponentName = startService(monitorServiceIntent);
 
             if (serviceComponentName != null) {
                 Log.d(TAG, "Service Started");
             }
-
-            // send Explicit intent
-            Intent newIntent = new Intent(getBaseContext(), ActiveDisplayBroadcastReceiver.class);
-            sendBroadcast(newIntent);
 
         } catch (Exception e) {
             Log.d(TAG, e.toString());

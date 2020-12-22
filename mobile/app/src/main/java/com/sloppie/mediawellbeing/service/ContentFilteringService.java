@@ -1,22 +1,31 @@
 package com.sloppie.mediawellbeing.service;
 
+import android.app.Activity;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.UiThread;
 import androidx.core.app.NotificationCompat;
 
 import com.sloppie.mediawellbeing.R;
 import com.sloppie.mediawellbeing.receiver.ActiveDisplayBroadcastReceiver;
+import com.sloppie.mediawellbeing.service.util.NodeTraverser;
 
 
 /**
@@ -41,15 +50,27 @@ import com.sloppie.mediawellbeing.receiver.ActiveDisplayBroadcastReceiver;
  * filter placed. As such, this Service requires access to an interface that is updated on the
  * status of each View and when the coordinates should be removed.
  */
-public class ContentFilteringService extends Service {
+public class ContentFilteringService extends Service implements FilterService,
+        FilterService.OverlayUpdater {
     public static String TAG = "com.sloppie.mediawellbeing.service:MonitorService";
     public static final int NOTIFICATION_ID = 101;
+
+    WindowManager windowManager = null;
+    WindowManager.LayoutParams windowLayoutParams = null;
+    View rootView = null;
+    RelativeLayout relativeLayout = null;
+
+    private int UPDATE_ID = 1;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        // register a broadcast receiver
-        ActiveDisplayBroadcastReceiver adbr = new ActiveDisplayBroadcastReceiver();
+
+        // registerReceiver
+        ActiveDisplayBroadcastReceiver activeDisplayBroadcastReceiver =
+                new ActiveDisplayBroadcastReceiver(this);
+        IntentFilter abdrIntentFilter = new IntentFilter(UserActionMonitorService.UPDATE_OVERLAY);
+        registerReceiver(activeDisplayBroadcastReceiver, abdrIntentFilter);
 
         // start the service as a FOREGROUND_SERVICE
         NotificationCompat.Builder monitorNotification = new NotificationCompat.Builder(
@@ -72,45 +93,53 @@ public class ContentFilteringService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         // null safety if the process is being recreated
         // TODO: spawn PRODUCER/CONSUMER threads to help with the monitoring
-        if (intent != null) {
-            // get window manager
-            WindowManager windowManager =
-                    (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        Handler myHandler = new Handler(Looper.getMainLooper());
+        myHandler.post(() -> {
+            if (intent != null) {
+                // get window manager
+                windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
 
-            // get screen dimensions from active window display
-            Point screenPoints = new Point();
-            getDisplay().getRealSize(screenPoints);
+                // get screen dimensions from active window display
+                Point screenPoints = new Point();
+                getDisplay().getRealSize(screenPoints);
 
-            // create an based on the android OS version, this is because the SYSTEM_OVERLAY
-            // version does not work for versions later than O, thus all devices Supported have to
-            // be taken into consideration.
-            int OVERLAY_TYPE = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ?
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:
-                    WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
+                // create an based on the android OS version, this is because the SYSTEM_OVERLAY
+                // version does not work for versions later than O, thus all devices Supported have to
+                // be taken into consideration.
+                int OVERLAY_TYPE = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ?
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:
+                        WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
 
-            // the FLAG_NOT_TOUCHABLE together with the FLAG_NOT_FOCUSABLE allow for the overlay to
-            // pass all its interactions to the underlying window.
-            WindowManager.LayoutParams overlayParams = new WindowManager.LayoutParams(
-                    screenPoints.x,
-                    screenPoints.y,
-                    OVERLAY_TYPE,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
-                    WindowManager.LayoutParams.FLAG_DIM_BEHIND,
-                    PixelFormat.TRANSLUCENT);
+                // the FLAG_NOT_TOUCHABLE together with the FLAG_NOT_FOCUSABLE allow for the overlay to
+                // pass all its interactions to the underlying window.
+                windowLayoutParams = new WindowManager.LayoutParams(
+                        screenPoints.x,
+                        screenPoints.y,
+                        OVERLAY_TYPE,
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
+                                WindowManager.LayoutParams.FLAG_DIM_BEHIND,
+                        PixelFormat.TRANSLUCENT);
 
-            View rootView = new View(getBaseContext());
+                windowLayoutParams.dimAmount = 0.0f;
 
-            try {
-                windowManager.addView(rootView, overlayParams);
-                Log.d(TAG, "Overlay added");
-            } catch (Exception e) {
-                Log.d(TAG, e.toString());
-                Toast.makeText(getBaseContext(), "Permission to display over other apps required", Toast.LENGTH_SHORT).show();
+                rootView = new View(getBaseContext());
+
+                relativeLayout = new RelativeLayout(getBaseContext());
+
+                try {
+                    windowManager.addView(relativeLayout, windowLayoutParams);
+                    Log.d(TAG, "Overlay added");
+                } catch (Exception e) {
+                    Log.d(TAG, e.toString());
+                    Toast.makeText(
+                            getBaseContext(),
+                            "Permission to display over other apps required",
+                            Toast.LENGTH_SHORT).show();
+                }
             }
-            // handle all the data
-            // start as a foreground service
-        }
+        });
+
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -118,5 +147,41 @@ public class ContentFilteringService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    @Override
+    public synchronized void updateWindowManager(int UPDATE_ID) {
+        if (UPDATE_ID == this.UPDATE_ID) {
+            try {
+                Handler myHandler = new Handler(Looper.getMainLooper());
+
+                myHandler.post(() -> {
+                    windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+                    windowManager.addView(relativeLayout, windowLayoutParams);
+                    Log.d(TAG, "Layout Updated");
+                });
+            } catch (Exception e) {
+                Log.d(TAG, e.toString());
+            }
+        }
+    }
+
+    @Override
+    public synchronized void updateRelativeLayout(
+            View newView, RelativeLayout.LayoutParams viewLayoutParams, int UPDATE_ID) {
+        if (UPDATE_ID == this.UPDATE_ID) {
+            relativeLayout.addView(newView, viewLayoutParams);
+        }
+    }
+
+    @Override
+    public void updateOverlayLayout(AccessibilityNodeInfo rootNode) {
+        // spawn threads to traverse node
+        UPDATE_ID++; // increase the update ID before spawining the threads
+        // create a new RelativeLayout for the updated window
+        relativeLayout.removeAllViews();
+        NodeTraverser nodeTraverser = new NodeTraverser(this, rootNode, UPDATE_ID);
+        Thread traverserThread = new Thread(nodeTraverser);
+        traverserThread.start();
     }
 }
