@@ -67,6 +67,14 @@ public class UserActionMonitorService extends AccessibilityService {
         packageStack = new HybridStack();
     }
 
+    @Override
+    public void onDestroy() {
+        Log.d(TAG, "Closing up service");
+        Intent destroyServiceIntent = new Intent(CLOSE_FOREGROUND_SERVICE);
+        sendBroadcast(destroyServiceIntent);
+        super.onDestroy();
+    }
+
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {

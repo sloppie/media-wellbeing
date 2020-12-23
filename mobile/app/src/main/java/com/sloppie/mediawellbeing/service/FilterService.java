@@ -33,6 +33,8 @@ public interface FilterService {
     void updateRelativeLayout(
             int width, int height, int x, int y, int UPDATE_ID);
 
+    int getDISPLAY_CUTOUT();
+
     /**
      * This method exposes the {@link android.app.Service#getBaseContext()} to the Threads
      * inspecting the Layout to enable spawning of new Views.
@@ -48,5 +50,6 @@ public interface FilterService {
      */
     interface OverlayUpdater {
         void updateOverlayLayout(AccessibilityNodeInfo rootNode);
+        void destroyOverlay();
     }
 }

@@ -11,7 +11,7 @@ import com.sloppie.mediawellbeing.service.UserActionMonitorService;
 
 public class ActiveDisplayBroadcastReceiver extends BroadcastReceiver {
     public static final String TAG =
-            "com.sloppie.mediawellbeing.receiver.ActiveBroadcastReceiver";
+            "ActiveBroadcastReceiver";
 
     private FilterService.OverlayUpdater overlayUpdater = null;
 
@@ -24,8 +24,11 @@ public class ActiveDisplayBroadcastReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        String action = intent.getAction();
+        Log.d(TAG, action);
+
         // handle UPDATE_OVERLAY action
-        if (intent.getAction().compareTo(UserActionMonitorService.UPDATE_OVERLAY) == 0) {
+        if (action.compareTo(UserActionMonitorService.UPDATE_OVERLAY) == 0) {
             AccessibilityNodeInfo rootNode = intent.getParcelableExtra(
                     UserActionMonitorService.ROOT_NODE_INFO);
             // start the updateOverlay process
@@ -35,6 +38,10 @@ public class ActiveDisplayBroadcastReceiver extends BroadcastReceiver {
             } else {
                 Log.d(TAG, "Could not find FilterService.OverlayUpdater class to handle action in Intent");
             }
+        } else if (action.compareTo(UserActionMonitorService.CLOSE_FOREGROUND_SERVICE) == 0) {
+            // stop the service
+            Log.d(TAG, "Destroying Overlay");
+            overlayUpdater.destroyOverlay();
         }
     }
 }

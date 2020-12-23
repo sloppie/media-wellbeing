@@ -24,7 +24,8 @@ public class NodeTraverser implements Runnable {
 
     public NodeTraverser(
             FilterService filterService, AccessibilityNodeInfo node,
-            int UPDATE_ID, NodeTraverser parent) {
+            int UPDATE_ID, NodeTraverser parent)
+    {
         this.filterService = filterService;
         this.node = node;
         this.UPDATE_ID = UPDATE_ID;
@@ -59,13 +60,9 @@ public class NodeTraverser implements Runnable {
                 int width = imageViewBounds.right - imageViewBounds.left;
                 int height = imageViewBounds.bottom - imageViewBounds.top;
                 int x = imageViewBounds.left;
-                int y = imageViewBounds.top;
-
-                View newImageViewContainer = new View(filterService.getBaseContext());
-                RelativeLayout.LayoutParams rlp = new RelativeLayout.LayoutParams(width, height);
-                rlp.leftMargin = x;
-                rlp.topMargin = y;
-                Log.d(TAG, imageViewBounds.toShortString());
+                // gets the Display Coordinates but subtracts the Cutout Display to convert to
+                // Window Coordinates.
+                int y = (imageViewBounds.top - filterService.getDISPLAY_CUTOUT());
 
                 // update the relative layout
                 filterService.updateRelativeLayout(width, height, x, y, UPDATE_ID);
@@ -98,7 +95,7 @@ public class NodeTraverser implements Runnable {
 
             THREAD_SPAWN_COMPLETE = true;
         } catch (Exception e) {
-            Log.d(TAG, "HERE: " + e.toString());
+            Log.d(TAG, e.toString());
         }
     }
 

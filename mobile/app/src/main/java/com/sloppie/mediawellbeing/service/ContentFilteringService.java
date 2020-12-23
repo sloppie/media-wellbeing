@@ -7,21 +7,30 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
+import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Display;
 import android.view.View;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.view.WindowMetrics;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.UiThread;
 import androidx.core.app.NotificationCompat;
 
@@ -61,6 +70,7 @@ public class ContentFilteringService extends Service implements FilterService,
     WindowManager.LayoutParams windowLayoutParams = null;
     View rootView = null;
     RelativeLayout relativeLayout = null;
+    int DISPLAY_CUTOUT = 0;
 
     private int UPDATE_ID = 1;
     private Handler myHandler;
@@ -91,6 +101,10 @@ public class ContentFilteringService extends Service implements FilterService,
         // start the service
         startForeground(NOTIFICATION_ID, monitorNotification.build());
         Log.d(TAG, "Foreground Service started");
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            DISPLAY_CUTOUT = getDisplay().getCutout().getSafeInsetTop();
+        }
     }
 
     @Override
@@ -121,6 +135,7 @@ public class ContentFilteringService extends Service implements FilterService,
                     }
                 } else if (msg.arg1 == 3) {
                     // TODO: test whether that now they are all on the main thread, one can use RelativeLayout#updateViewLayout instead of having to create a new one
+                    relativeLayout.removeAllViews();
                     relativeLayout = new RelativeLayout(getBaseContext());
                 } else if (msg.arg1 == 4) {
                     View newView = new View(getBaseContext());
@@ -129,6 +144,10 @@ public class ContentFilteringService extends Service implements FilterService,
                     int height = layoutParamsBundle.getInt("height");
                     int x = layoutParamsBundle.getInt("x");
                     int y = layoutParamsBundle.getInt("y");
+                    GradientDrawable backgroundGradientDrawable = new GradientDrawable();
+                    backgroundGradientDrawable.setColor(0x00FFFFFF);
+                    backgroundGradientDrawable.setStroke(1, 0xFFFFFFFF);
+                    newView.setBackground(backgroundGradientDrawable);
 
                     RelativeLayout.LayoutParams rlp =
                             new RelativeLayout.LayoutParams(width, height);
@@ -146,7 +165,8 @@ public class ContentFilteringService extends Service implements FilterService,
 
             // get screen dimensions from active window display
             Point screenPoints = new Point();
-            getDisplay().getRealSize(screenPoints);
+            Display activeDisplay = getDisplay();
+            activeDisplay.getRealSize(screenPoints);
 
             // create an based on the android OS version, this is because the SYSTEM_OVERLAY
             // version does not work for versions later than O, thus all devices Supported have to
@@ -155,11 +175,9 @@ public class ContentFilteringService extends Service implements FilterService,
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:
                     WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
 
-            // the FLAG_NOT_TOUCHABLE together with the FLAG_NOT_FOCUSABLE allow for the overlay to
-            // pass all its interactions to the underlying window.
             windowLayoutParams = new WindowManager.LayoutParams(
-                    screenPoints.x,
-                    screenPoints.y,
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT,
                     OVERLAY_TYPE,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
                             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
@@ -170,7 +188,6 @@ public class ContentFilteringService extends Service implements FilterService,
 
             rootView = new View(getBaseContext());
 
-//            relativeLayout = new RelativeLayout(getBaseContext());
             Message msg = myHandler.obtainMessage();
             msg.arg1 = 2;
             myHandler.sendMessage(msg);
@@ -179,8 +196,6 @@ public class ContentFilteringService extends Service implements FilterService,
                 Message myMessage = myHandler.obtainMessage();
                 myMessage.arg1 = 1;
                 myHandler.sendMessage(myMessage);
-//                windowManager.addView(relativeLayout, windowLayoutParams);
-                Log.d(TAG, "Overlay added");
             } catch (Exception e) {
                 Log.d(TAG, e.toString());
                 Toast.makeText(
@@ -206,11 +221,6 @@ public class ContentFilteringService extends Service implements FilterService,
                 Message message = myHandler.obtainMessage();
                 message.arg1 = 1;
                 myHandler.sendMessage(message);
-//                myHandler.post(() -> {
-//                    windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-//                    windowManager.addView(relativeLayout, windowLayoutParams);
-//                    Log.d(TAG, "Layout Updated");
-//                });
             } catch (Exception e) {
                 Log.d(TAG, e.toString());
             }
@@ -246,5 +256,17 @@ public class ContentFilteringService extends Service implements FilterService,
         NodeTraverser nodeTraverser = new NodeTraverser(this, rootNode, UPDATE_ID);
         Thread traverserThread = new Thread(nodeTraverser);
         traverserThread.start();
+    }
+
+    @Override
+    public void destroyOverlay() {
+        stopForeground(true);
+        stopSelf();
+        Log.d(TAG, "Stopping Service");
+    }
+
+    @Override
+    public int getDISPLAY_CUTOUT() {
+        return DISPLAY_CUTOUT;
     }
 }
