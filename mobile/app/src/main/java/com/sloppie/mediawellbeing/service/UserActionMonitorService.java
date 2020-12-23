@@ -8,6 +8,8 @@ import android.content.Intent;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.util.Size;
 import android.view.WindowManager;
@@ -21,6 +23,14 @@ import com.sloppie.mediawellbeing.receiver.ActiveDisplayBroadcastReceiver;
 import com.sloppie.mediawellbeing.util.BaseDataStructure;
 import com.sloppie.mediawellbeing.util.HybridStack;
 
+import java.util.ArrayList;
+
+/**
+ * This class registers as an {@link android.accessibilityservice.AccessibilityService} to allow
+ * the app to receive all actions going through the application. This helps the Service to start
+ * and stop the {@link ContentFilteringService} when an app whose content is to be monitored is
+ * brought into focus.
+ */
 public class UserActionMonitorService extends AccessibilityService {
     static String TAG = "com.sloppie.mediawellbeing.service:AccessibilityService";
 
@@ -37,6 +47,8 @@ public class UserActionMonitorService extends AccessibilityService {
     // window has changed
     public static final String UPDATE_OVERLAY =
             "com.sloppie.mediawellbeing.UserActionMonitorService.UPDATE_OVERLAY";
+
+    public static final ArrayList<String> activePackages = new ArrayList<>();
 
     /**
      * This class is used to wrap the the package name to allow for it to be used in the data
@@ -58,36 +70,86 @@ public class UserActionMonitorService extends AccessibilityService {
     // this refers to the app that is currently active
     private String ACTIVE_APP = null;
 
+    // this keeps track of the active stack to allow stop and start of the FilterService depending
+    // on whether the stack is empty
     private HybridStack packageStack;
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public void onCreate() {
         super.onCreate();
-        packageStack = new HybridStack();
+        packageStack = new HybridStack(); // initialise stack
     }
 
     @Override
     public void onDestroy() {
         Log.d(TAG, "Closing up service");
-        Intent destroyServiceIntent = new Intent(CLOSE_FOREGROUND_SERVICE);
-        sendBroadcast(destroyServiceIntent);
+
+        // if the packageStack isnt empty, it means that also the ContentFilteringService is also
+        // running thus needs to be cancelled and also help perform clean up of the receiver
+        // associated with the FilterService
+        if (!packageStack.isEmpty()) {
+            // handle on the main thread
+            Handler mainLoopHandler = new Handler(Looper.getMainLooper());
+            mainLoopHandler.post(() -> {
+                Intent destroyServiceIntent = new Intent(CLOSE_FOREGROUND_SERVICE);
+                sendBroadcast(destroyServiceIntent);
+                Log.d(TAG, "Sending intent");
+            });
+        }
+
         super.onDestroy();
     }
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        setACTIVE_APP((String) event.getPackageName()); // set the package name each time
-        int eventType = event.getEventType();
-        String contentDescription = (String) event.getContentDescription();
-        AccessibilityNodeInfo accessibilityNodeInfo = event.getSource();
+        String activePackage = (String) event.getPackageName();
+        setACTIVE_APP(activePackage); // set the package name each time
 
-        AccessibilityNodeInfo rootView = this.getRootInActiveWindow();
-        Intent activeDisplayIntent =
-                new Intent(UPDATE_OVERLAY);
-        activeDisplayIntent.putExtra(ROOT_NODE_INFO, rootView);
-        sendBroadcast(activeDisplayIntent);
+        // check if this is a package of interest
+        if (activePackages.contains(activePackage)) {
+            boolean serviceStrarted = false;
+
+            // start the ContentFiltering service if the packageStack is empty
+            if (packageStack.isEmpty()) {
+                try {
+                    // create Foreground Service
+                    Intent monitorServiceIntent = new Intent(getApplicationContext(), ContentFilteringService.class);
+                    ComponentName serviceComponentName = startService(monitorServiceIntent);
+
+                    if (serviceComponentName != null) {
+                        serviceStrarted = true;
+                        packageStack.push(new MonitoredApp(activePackage));
+                        Log.d(TAG, "Service Started");
+                    }
+
+                } catch (Exception e) {
+                    Log.d(TAG, e.toString());
+                }
+            } else {
+                // if the packageStack is not empty, it means that the service is already running
+                serviceStrarted = true;
+            }
+
+            // send the event to the app of FilterService
+            if (serviceStrarted) {
+                AccessibilityNodeInfo rootView = this.getRootInActiveWindow();
+                Intent activeDisplayIntent =
+                        new Intent(UPDATE_OVERLAY);
+                activeDisplayIntent.putExtra(ROOT_NODE_INFO, rootView);
+                sendBroadcast(activeDisplayIntent);
+            }
+        } else {
+            // end the content Filtering service as the stack does not contain a package that needs
+            // monitoring
+            if (!packageStack.isEmpty()) {
+                packageStack.pop();
+                Intent destroyService = new Intent(CLOSE_FOREGROUND_SERVICE);
+                sendBroadcast(destroyService); // close service
+                Log.d(TAG, "Ending service");
+            }
+        }
     }
 
     @Override
@@ -98,30 +160,27 @@ public class UserActionMonitorService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        // add all relevant packages that the user want to be monitored
+        // PROBABLY FETCHED FROM A DATABASE
+        activePackages.add("com.spotify.com");
+        activePackages.add("com.whatsapp");
+
         AccessibilityServiceInfo nodeInfo = new AccessibilityServiceInfo();
-        nodeInfo.eventTypes = AccessibilityEvent.TYPE_VIEW_CLICKED | AccessibilityEvent.TYPE_VIEW_FOCUSED;
+        nodeInfo.eventTypes = AccessibilityEvent.TYPE_VIEW_CLICKED;
         // test app packages
-        nodeInfo.packageNames = new String[] {"com.spotify.music", "com.whatsapp"};
         nodeInfo.feedbackType = AccessibilityServiceInfo.FEEDBACK_VISUAL;
         setServiceInfo(nodeInfo);
         Log.d(TAG, "Service Connected");
-
-        try {
-            Toast.makeText(getApplicationContext(), "This is a test toast", Toast.LENGTH_LONG).show();
-
-            // create Foreground Service
-            Intent monitorServiceIntent = new Intent(getApplicationContext(), ContentFilteringService.class);
-            ComponentName serviceComponentName = startService(monitorServiceIntent);
-
-            if (serviceComponentName != null) {
-                Log.d(TAG, "Service Started");
-            }
-
-        } catch (Exception e) {
-            Log.d(TAG, e.toString());
-        }
     }
 
+    /**
+     * This function is used to globally set the activePackageName to help in the monitoring of
+     * the order that is being maintained by the service. This will help the Service track whether
+     * it needs to start or stop the {@link ContentFilteringService} and how to control the
+     * packageStack
+     * @param packageName this is the package name of from which the AccessibilityEvent was fired
+     *                    from.
+     */
     private void setACTIVE_APP(String packageName) {
         if (ACTIVE_APP != null) {
             // if the active app has changed:

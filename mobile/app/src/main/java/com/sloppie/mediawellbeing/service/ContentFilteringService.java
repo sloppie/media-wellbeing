@@ -1,14 +1,11 @@
 package com.sloppie.mediawellbeing.service;
 
-import android.app.Activity;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
-import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -16,22 +13,16 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
-import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.View;
-import android.view.WindowInsets;
-import android.view.WindowInsetsController;
 import android.view.WindowManager;
-import android.view.WindowMetrics;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
-import androidx.annotation.UiThread;
 import androidx.core.app.NotificationCompat;
 
 import com.sloppie.mediawellbeing.R;
@@ -63,28 +54,46 @@ import com.sloppie.mediawellbeing.service.util.NodeTraverser;
  */
 public class ContentFilteringService extends Service implements FilterService,
         FilterService.OverlayUpdater {
+    // tag for logging
     public static String TAG = "com.sloppie.mediawellbeing.service:ContentFilteringService";
+    // id used for this class' Foreground notifications
     public static final int NOTIFICATION_ID = 101;
 
     WindowManager windowManager = null;
     WindowManager.LayoutParams windowLayoutParams = null;
     View rootView = null;
     RelativeLayout relativeLayout = null;
+
+    // this is essential as the API provided as of API LEVEL 29 does not use the Window coordinates
+    // when getting the bound of the AccessibilityNodeInfo, as such, the DisplayCutout has to be
+    // subtracted from the Rect bounds.
+    // This will be refactored once when the AccessibilityNodeInfo also provides Window coordinates
+    // and not Display coordinates
     int DISPLAY_CUTOUT = 0;
 
+    // this variable is used to make sure spawned threads do not add to the RelativeLayout if there
+    // is a more recent action that has been started
     private int UPDATE_ID = 1;
-    private Handler myHandler;
-    private Handler relativeLayoutHandler = null;
+
+    // this thread is used to carry out actions on the main thread
+    private Handler mainThreadHandler;
+
+    // receiver to be used to get nodes from the main app
+    ActiveDisplayBroadcastReceiver activeDisplayBroadcastReceiver = null;
 
     @Override
     public void onCreate() {
         super.onCreate();
 
         // registerReceiver
-        ActiveDisplayBroadcastReceiver activeDisplayBroadcastReceiver =
+        activeDisplayBroadcastReceiver =
                 new ActiveDisplayBroadcastReceiver(this);
-        IntentFilter abdrIntentFilter = new IntentFilter(UserActionMonitorService.UPDATE_OVERLAY);
-        registerReceiver(activeDisplayBroadcastReceiver, abdrIntentFilter);
+        // intent filter used to fetch actions from all broadcasts
+        IntentFilter abdrIntentFilter = new IntentFilter();
+        abdrIntentFilter.addAction(UserActionMonitorService.UPDATE_OVERLAY);
+        abdrIntentFilter.addAction(UserActionMonitorService.CLOSE_FOREGROUND_SERVICE);
+
+        registerReceiver(activeDisplayBroadcastReceiver, abdrIntentFilter); // register receiver
 
         // start the service as a FOREGROUND_SERVICE
         NotificationCompat.Builder monitorNotification = new NotificationCompat.Builder(
@@ -98,6 +107,7 @@ public class ContentFilteringService extends Service implements FilterService,
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setSound(null)
                 .setVibrate(null);
+
         // start the service
         startForeground(NOTIFICATION_ID, monitorNotification.build());
         Log.d(TAG, "Foreground Service started");
@@ -112,11 +122,29 @@ public class ContentFilteringService extends Service implements FilterService,
         // null safety if the process is being recreated
         // TODO: spawn PRODUCER/CONSUMER threads to help with the monitoring
 
+        // create an based on the android OS version, this is because the SYSTEM_OVERLAY
+        // version does not work for versions later than O, thus all devices Supported have to
+        // be taken into consideration.
+        int OVERLAY_TYPE = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ?
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:
+                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
+
+
         // this handler makes sure that the operations are carried out on the main thread
-        myHandler = new Handler(Looper.getMainLooper()) {
+        // all UI operations must be handled by the same thread otherwise this results to the app
+        // crashing due to View ownership issues
+        mainThreadHandler = new Handler(Looper.getMainLooper()) {
             @Override
             public void handleMessage(@NonNull Message msg) {
                 super.handleMessage(msg);
+
+                // KEY:
+                //  1 - Adding a new RelativeLayout and assigning the WindowManager
+                //  2 - resetting the RelativeLayout
+                //  3 - removing all the views from an existing RelativeLayout
+                //  4 - Adding a bounded Rect with ImageView coordinates
+                //  5 - Removing overlay by creating the Layout params of a new view to 0, 0 dim
+
                 if (msg.arg1 == 1) {
                     try {
                         windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
@@ -139,11 +167,16 @@ public class ContentFilteringService extends Service implements FilterService,
                     relativeLayout = new RelativeLayout(getBaseContext());
                 } else if (msg.arg1 == 4) {
                     View newView = new View(getBaseContext());
+
+                    // fetch the coordinates from the Bundle passed by the Thread that found the
+                    // ImageView
                     Bundle layoutParamsBundle = msg.getData();
                     int width = layoutParamsBundle.getInt("width");
                     int height = layoutParamsBundle.getInt("height");
                     int x = layoutParamsBundle.getInt("x");
                     int y = layoutParamsBundle.getInt("y");
+
+                    // create a Rectangle with a border of 1 stroke width
                     GradientDrawable backgroundGradientDrawable = new GradientDrawable();
                     backgroundGradientDrawable.setColor(0x00FFFFFF);
                     backgroundGradientDrawable.setStroke(1, 0xFFFFFFFF);
@@ -155,26 +188,25 @@ public class ContentFilteringService extends Service implements FilterService,
                     rlp.topMargin = y;
 
                     relativeLayout.addView(newView, rlp);
+                } else if (msg.arg1 == 5){
+                    // update the overlay to 0, 0 length and width seems to work
+                    ((WindowManager) getSystemService(Context.WINDOW_SERVICE))
+                            .addView(new View(getBaseContext()), new WindowManager.LayoutParams(
+                                    0,
+                                    0,
+                                    OVERLAY_TYPE,
+                                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                                    PixelFormat.TRANSLUCENT));
                 }
             }
         };
 
+        // null safety protection if this is a recreation of a view from a config change
         if (intent != null) {
             // get window manager
             windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
 
-            // get screen dimensions from active window display
-            Point screenPoints = new Point();
-            Display activeDisplay = getDisplay();
-            activeDisplay.getRealSize(screenPoints);
-
-            // create an based on the android OS version, this is because the SYSTEM_OVERLAY
-            // version does not work for versions later than O, thus all devices Supported have to
-            // be taken into consideration.
-            int OVERLAY_TYPE = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ?
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:
-                    WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
-
+            // create the WindowManager.LayoutParams to be used by the Overlay
             windowLayoutParams = new WindowManager.LayoutParams(
                     WindowManager.LayoutParams.MATCH_PARENT,
                     WindowManager.LayoutParams.MATCH_PARENT,
@@ -184,18 +216,18 @@ public class ContentFilteringService extends Service implements FilterService,
                             WindowManager.LayoutParams.FLAG_DIM_BEHIND,
                     PixelFormat.TRANSLUCENT);
 
-            windowLayoutParams.dimAmount = 0.0f;
+            windowLayoutParams.dimAmount = 0.0f; // this may be used to sensor content
 
-            rootView = new View(getBaseContext());
-
-            Message msg = myHandler.obtainMessage();
+            // create the relative layout to be used by the overlay
+            Message msg = mainThreadHandler.obtainMessage();
             msg.arg1 = 2;
-            myHandler.sendMessage(msg);
+            mainThreadHandler.sendMessage(msg);
 
             try {
-                Message myMessage = myHandler.obtainMessage();
+                // create the overlay and add the RelativeLayout created above
+                Message myMessage = mainThreadHandler.obtainMessage();
                 myMessage.arg1 = 1;
-                myHandler.sendMessage(myMessage);
+                mainThreadHandler.sendMessage(myMessage);
             } catch (Exception e) {
                 Log.d(TAG, e.toString());
                 Toast.makeText(
@@ -215,12 +247,26 @@ public class ContentFilteringService extends Service implements FilterService,
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        // clean up process
+        unregisterReceiver(activeDisplayBroadcastReceiver);
+        stopForeground(true);
+        Message destroyMessage = mainThreadHandler.obtainMessage();
+        destroyMessage.arg1 = 5;
+        mainThreadHandler.sendMessage(destroyMessage);
+        Log.d(TAG, "Service Destroyed");
+    }
+
+    @Override
     public synchronized void updateWindowManager(int UPDATE_ID) {
         if (UPDATE_ID == this.UPDATE_ID) {
             try {
-                Message message = myHandler.obtainMessage();
+                // update WindowManager with the inflated RelativeLayout
+                Message message = mainThreadHandler.obtainMessage();
                 message.arg1 = 1;
-                myHandler.sendMessage(message);
+                mainThreadHandler.sendMessage(message);
             } catch (Exception e) {
                 Log.d(TAG, e.toString());
             }
@@ -237,22 +283,22 @@ public class ContentFilteringService extends Service implements FilterService,
             extraData.putInt("x", x);
             extraData.putInt("y", y);
 
-            Message msg = myHandler.obtainMessage();
+            // inflate the relative layout with the bounds gotten by the Thread
+            Message msg = mainThreadHandler.obtainMessage();
             msg.arg1 = 4;
             msg.setData(extraData);
-            myHandler.sendMessage(msg);
+            mainThreadHandler.sendMessage(msg);
         }
     }
 
     @Override
     public void updateOverlayLayout(AccessibilityNodeInfo rootNode) {
         // spawn threads to traverse node
-        UPDATE_ID++; // increase the update ID before spawining the threads
+        UPDATE_ID++; // increase the update ID before spawning the threads
         // create a new RelativeLayout for the updated window
-        Message msg = myHandler.obtainMessage();
+        Message msg = mainThreadHandler.obtainMessage();
         msg.arg1 = 3;
-        myHandler.sendMessage(msg);
-//        relativeLayout.removeAllViews();
+        mainThreadHandler.sendMessage(msg);
         NodeTraverser nodeTraverser = new NodeTraverser(this, rootNode, UPDATE_ID);
         Thread traverserThread = new Thread(nodeTraverser);
         traverserThread.start();
@@ -260,9 +306,16 @@ public class ContentFilteringService extends Service implements FilterService,
 
     @Override
     public void destroyOverlay() {
+        // this method is exposed through FilterService.OverlayUpdater to help the
+        // ActiveDisplayBroadcastReceiver call on clean up once it receives an Intent with the
+        // action of UserActionMonitoringService#CLOSE_FOREGROUND_SERVICE from the
+        // UserMonitoringService Service
         stopForeground(true);
         stopSelf();
-        Log.d(TAG, "Stopping Service");
+
+        ((WindowManager) getSystemService(Context.WINDOW_SERVICE))
+                .removeViewImmediate(relativeLayout);
+        Log.d(TAG, "Stopped ContentFilteringService");
     }
 
     @Override

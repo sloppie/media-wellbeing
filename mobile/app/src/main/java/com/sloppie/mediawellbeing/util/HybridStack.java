@@ -63,4 +63,12 @@ public class HybridStack {
 
         return null;
     }
+
+    /**
+     * This method checks whether the active stack has a size of 0
+     * @return a boolean on whether the stack is empty.
+     */
+    public boolean isEmpty() {
+        return (stack.isEmpty());
+    }
 }

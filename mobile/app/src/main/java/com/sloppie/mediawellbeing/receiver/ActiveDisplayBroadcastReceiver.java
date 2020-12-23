@@ -3,6 +3,8 @@ package com.sloppie.mediawellbeing.receiver;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.accessibility.AccessibilityNodeInfo;
 
@@ -15,9 +17,22 @@ public class ActiveDisplayBroadcastReceiver extends BroadcastReceiver {
 
     private FilterService.OverlayUpdater overlayUpdater = null;
 
+    /**
+     * Default constructor
+     */
     public ActiveDisplayBroadcastReceiver() {
     }
 
+    /**
+     * This initialised the BroadcastReceiver with reference to the FilterService that initialised
+     * it to help it access vital methods from the {@link FilterService.OverlayUpdater} that help
+     * with the manipulation and clean up of the active Overlay put up the FilterService such as
+     * clean up and update methods.
+     *
+     * @param overlayUpdater this is an interface exposing FilterService methods that help with the
+     *                       manipulation of the Overlay initialised by the FilterService
+     *                       responsible for registering the BroadcastReceiver.
+     */
     public ActiveDisplayBroadcastReceiver(FilterService.OverlayUpdater overlayUpdater) {
         this.overlayUpdater = overlayUpdater;
     }
@@ -39,6 +54,7 @@ public class ActiveDisplayBroadcastReceiver extends BroadcastReceiver {
                 Log.d(TAG, "Could not find FilterService.OverlayUpdater class to handle action in Intent");
             }
         } else if (action.compareTo(UserActionMonitorService.CLOSE_FOREGROUND_SERVICE) == 0) {
+            // CLOSES THE FOREGROUND SERVICE
             // stop the service
             Log.d(TAG, "Destroying Overlay");
             overlayUpdater.destroyOverlay();

@@ -33,6 +33,12 @@ public interface FilterService {
     void updateRelativeLayout(
             int width, int height, int x, int y, int UPDATE_ID);
 
+    /**
+     * This method is used to get the insets of the cutout.
+     * This helps the threads that get the outbound coordinates rect to readjust topMargin
+     * accordingly as based on the DisplayCutout (notch) size.
+     * @return the size of the DisplayCutout (notch)
+     */
     int getDISPLAY_CUTOUT();
 
     /**
@@ -49,7 +55,23 @@ public interface FilterService {
      * start the process of windowUpdate in the event that a window changes and/or updates.
      */
     interface OverlayUpdater {
+        /**
+         * This method is used to update the overlay of a monitoring service, this method is exposed
+         * to the {@link com.sloppie.mediawellbeing.receiver.ActiveDisplayBroadcastReceiver} to
+         * enable remote update to overlay as based on user events gathered through the
+         * {@link UserActionMonitorService}
+         *
+         * @param rootNode this is the rootNode of the screen after changes were detected by the
+         *                 UserActionMonitoringService.
+         */
         void updateOverlayLayout(AccessibilityNodeInfo rootNode);
+
+        /**
+         * This methos is exposed to the
+         * {@link com.sloppie.mediawellbeing.receiver.ActiveDisplayBroadcastReceiver} to allow
+         * remote trigerring of the destruction of the foreground monitoring service once no app of
+         * Monitoring interest is in user visibility.
+         */
         void destroyOverlay();
     }
 }
