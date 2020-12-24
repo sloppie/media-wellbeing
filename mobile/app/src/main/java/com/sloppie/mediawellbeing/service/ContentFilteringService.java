@@ -266,6 +266,20 @@ public class ContentFilteringService extends Service implements FilterService,
         Log.d(TAG, "Service Destroyed");
     }
 
+    // class methods
+    /**
+     * This method is used to carry out termination of stale Threads that will not update the
+     * Layout as the UPDATE_ID is already stale.
+     * @param UPDATE_ID this is the id corresponding to the ExecutorService in the BlockingQueue
+     *                  that is going to be terminated.
+     * @param isComplete this is the flag that helps determine the approach that will be used to
+     *                   terminate the service.
+     */
+    private void stopExecutorService(int UPDATE_ID, boolean isComplete) {
+        serviceArrayBlockingQueue.blockingRemove(UPDATE_ID, isComplete);
+    }
+
+
     // FilterService interface methods
     @Override
     public synchronized void updateWindowManager(int UPDATE_ID) {
@@ -306,14 +320,10 @@ public class ContentFilteringService extends Service implements FilterService,
     }
 
     @Override
-    public void stopExecutorService(int UPDATE_ID, boolean isComplete) {
-        serviceArrayBlockingQueue.blockingRemove(UPDATE_ID, isComplete);
-    }
-
-    @Override
     public int getDISPLAY_CUTOUT() {
         return DISPLAY_CUTOUT;
     }
+
 
     // FilterService.OverlayUpdater interface
     @Override
