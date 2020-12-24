@@ -44,12 +44,12 @@ public class ServiceArrayBlockingQueue {
                 activeServices.add(newService);
                 activeServiceIDs.add(UPDATE_ID);
                 added = true;
-                Log.d("ServiceArrBlockingQueue", "Service added");
+                Log.d("ServiceArrBlockingQueue", "Service added with UPDATE_ID" + UPDATE_ID);
             }
         } else {
             activeServices.add(newService);
             activeServiceIDs.add(UPDATE_ID);
-            Log.d("ServiceArrBlockingQueue", "Service added");
+            Log.d("ServiceArrBlockingQueue", "Service added" + (UPDATE_ID));
             added = true;
         }
 
@@ -73,14 +73,15 @@ public class ServiceArrayBlockingQueue {
             // remove the service and the reference to its ID
             if (!isComplete) {
                 activeServices.get(serviceIndex).shutdownNow(); // shutdown all active threads
+                Log.d("ServiceArrBlockingQueue", "STALE_UPDATE Service removed");
             } else {
                 // shutdown after all Threads have finished execution as this service has updated
                 // the Layout
                 activeServices.get(serviceIndex).shutdown();
+                Log.d("ServiceArrBlockingQueue", "Service removed, FRESH_UPDATE");
             }
             activeServices.remove(serviceIndex);
             activeServiceIDs.remove(serviceIndex);
-            Log.d("ServiceArrBlockingQueue", "Service removed");
         } else {
             Log.d("ServiceArrBlockingQueue", "Service already removed");
         }

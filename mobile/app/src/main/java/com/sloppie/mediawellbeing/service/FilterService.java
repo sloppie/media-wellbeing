@@ -63,8 +63,9 @@ public interface FilterService {
          *
          * @param rootNode this is the rootNode of the screen after changes were detected by the
          *                 UserActionMonitoringService.
+         * @param UPDATE_ID this is the UPDATE_ID used to identify the event in the update Process
          */
-        void updateOverlayLayout(AccessibilityNodeInfo rootNode);
+        void updateOverlayLayout(AccessibilityNodeInfo rootNode, int UPDATE_ID);
 
         /**
          * This methos is exposed to the

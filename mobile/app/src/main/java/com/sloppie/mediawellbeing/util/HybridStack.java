@@ -24,7 +24,7 @@ public class HybridStack {
      * contains a given value, it is sliced out and then pushed as a unique value to the top.
      * @param value
      */
-    public void push(BaseDataStructure<String> value) {
+    public synchronized void push(BaseDataStructure<String> value) {
         String key = value.getKey();
         if (stack.size() != 0) {
             // this index is used to find of there exists such a value in the stack,
@@ -56,7 +56,7 @@ public class HybridStack {
      * @return the element that has been popped, it returns null if the stack does not contain any
      * elements.
      */
-    public BaseDataStructure<String> pop() {
+    public synchronized BaseDataStructure<String> pop() {
         if (stack.size() > 0) {
             return stack.remove(stack.size() - 1);
         }
@@ -68,7 +68,7 @@ public class HybridStack {
      * This method checks whether the active stack has a size of 0
      * @return a boolean on whether the stack is empty.
      */
-    public boolean isEmpty() {
+    public synchronized boolean isEmpty() {
         return (stack.isEmpty());
     }
 }

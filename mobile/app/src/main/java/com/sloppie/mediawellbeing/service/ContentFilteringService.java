@@ -73,9 +73,12 @@ public class ContentFilteringService extends Service implements FilterService,
     // and not Display coordinates
     int DISPLAY_CUTOUT = 0;
 
+    // OVERLAY_TYPE flag differs depending on the OS version
+    int OVERLAY_TYPE = 0;
+
     // this variable is used to make sure spawned threads do not add to the RelativeLayout if there
     // is a more recent action that has been started
-    private int UPDATE_ID = 1;
+    private int UPDATE_ID = -1;
 
     private ServiceArrayBlockingQueue serviceArrayBlockingQueue = null;
 
@@ -88,6 +91,14 @@ public class ContentFilteringService extends Service implements FilterService,
     @Override
     public void onCreate() {
         super.onCreate();
+
+        // create an based on the android OS version, this is because the SYSTEM_OVERLAY
+        // version does not work for versions later than O, thus all devices Supported have to
+        // be taken into consideration.
+        OVERLAY_TYPE = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ?
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:
+                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
+
 
         // registerReceiver
         activeDisplayBroadcastReceiver =
@@ -129,14 +140,50 @@ public class ContentFilteringService extends Service implements FilterService,
         // null safety if the process is being recreated
         // TODO: spawn PRODUCER/CONSUMER threads to help with the monitoring
 
-        // create an based on the android OS version, this is because the SYSTEM_OVERLAY
-        // version does not work for versions later than O, thus all devices Supported have to
-        // be taken into consideration.
-        int OVERLAY_TYPE = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ?
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:
-                WindowManager.LayoutParams.TYPE_SYSTEM_ALERT;
+        // null safety protection if this is a recreation of a view from a config change
+        if (intent != null) {
+            ExecutorService newThreadExecutor = Executors.newFixedThreadPool(1);
+            newThreadExecutor.execute(OnStartThreadHandler);
+            newThreadExecutor.shutdown();
+        }
 
+        return super.onStartCommand(intent, flags, startId);
+    }
 
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        // clean up process
+        unregisterReceiver(activeDisplayBroadcastReceiver);
+        stopForeground(true);
+        Message destroyMessage = mainThreadHandler.obtainMessage();
+        destroyMessage.arg1 = 5;
+        mainThreadHandler.sendMessage(destroyMessage);
+        Log.d(TAG, "Service Destroyed");
+    }
+
+    // class methods
+    /**
+     * This method is used to carry out termination of stale Threads that will not update the
+     * Layout as the UPDATE_ID is already stale.
+     * @param UPDATE_ID this is the id corresponding to the ExecutorService in the BlockingQueue
+     *                  that is going to be terminated.
+     * @param isComplete this is the flag that helps determine the approach that will be used to
+     *                   terminate the service.
+     */
+    private void stopExecutorService(int UPDATE_ID, boolean isComplete) {
+        serviceArrayBlockingQueue.blockingRemove(UPDATE_ID, isComplete);
+    }
+
+    // EventHandlerThread
+    public Runnable OnStartThreadHandler = () -> {
         // this handler makes sure that the operations are carried out on the main thread
         // all UI operations must be handled by the same thread otherwise this results to the app
         // crashing due to View ownership issues
@@ -147,7 +194,7 @@ public class ContentFilteringService extends Service implements FilterService,
 
                 // KEY:
                 //  1 - Adding a new RelativeLayout and assigning the WindowManager
-                //  2 - resetting the RelativeLayout
+                //  2 - resetting the RelativeLayout and/or creating a new RelativeLayout
                 //  3 - removing all the views from an existing RelativeLayout
                 //  4 - Adding a bounded Rect with ImageView coordinates
                 //  5 - Removing overlay by creating the Layout params of a new view to 0, 0 dim
@@ -208,76 +255,38 @@ public class ContentFilteringService extends Service implements FilterService,
             }
         };
 
-        // null safety protection if this is a recreation of a view from a config change
-        if (intent != null) {
-            // get window manager
-            windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
 
-            // create the WindowManager.LayoutParams to be used by the Overlay
-            windowLayoutParams = new WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.MATCH_PARENT,
-                    WindowManager.LayoutParams.MATCH_PARENT,
-                    OVERLAY_TYPE,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
-                            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
-                            WindowManager.LayoutParams.FLAG_DIM_BEHIND,
-                    PixelFormat.TRANSLUCENT);
+        // create the WindowManager.LayoutParams to be used by the Overlay
+        windowLayoutParams = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                OVERLAY_TYPE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
+                        WindowManager.LayoutParams.FLAG_DIM_BEHIND,
+                PixelFormat.TRANSLUCENT);
 
-            windowLayoutParams.dimAmount = 0.0f; // this may be used to sensor content
+        windowLayoutParams.dimAmount = 0.0f; // this may be used to sensor content
 
-            // create the relative layout to be used by the overlay
-            Message msg = mainThreadHandler.obtainMessage();
-            msg.arg1 = 2;
-            mainThreadHandler.sendMessage(msg);
+        // create the relative layout to be used by the overlay
+        Message msg = mainThreadHandler.obtainMessage();
+        msg.arg1 = 2;
+        mainThreadHandler.sendMessage(msg);
 
-            try {
-                // create the overlay and add the RelativeLayout created above
-                Message myMessage = mainThreadHandler.obtainMessage();
-                myMessage.arg1 = 1;
-                mainThreadHandler.sendMessage(myMessage);
-            } catch (Exception e) {
-                Log.d(TAG, e.toString());
-                Toast.makeText(
-                        getBaseContext(),
-                        "Permission to display over other apps required",
-                        Toast.LENGTH_SHORT).show();
-            }
+        try {
+            // create the overlay and add the RelativeLayout created above
+            Message myMessage = mainThreadHandler.obtainMessage();
+            myMessage.arg1 = 1;
+            mainThreadHandler.sendMessage(myMessage);
+        } catch (Exception e) {
+            Log.d(TAG, e.toString());
+            Toast.makeText(
+                    getBaseContext(),
+                    "Permission to display over other apps required",
+                    Toast.LENGTH_SHORT).show();
         }
-
-        return super.onStartCommand(intent, flags, startId);
-    }
-
-    @Nullable
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-
-        // clean up process
-        unregisterReceiver(activeDisplayBroadcastReceiver);
-        stopForeground(true);
-        Message destroyMessage = mainThreadHandler.obtainMessage();
-        destroyMessage.arg1 = 5;
-        mainThreadHandler.sendMessage(destroyMessage);
-        Log.d(TAG, "Service Destroyed");
-    }
-
-    // class methods
-    /**
-     * This method is used to carry out termination of stale Threads that will not update the
-     * Layout as the UPDATE_ID is already stale.
-     * @param UPDATE_ID this is the id corresponding to the ExecutorService in the BlockingQueue
-     *                  that is going to be terminated.
-     * @param isComplete this is the flag that helps determine the approach that will be used to
-     *                   terminate the service.
-     */
-    private void stopExecutorService(int UPDATE_ID, boolean isComplete) {
-        serviceArrayBlockingQueue.blockingRemove(UPDATE_ID, isComplete);
-    }
+    };
 
 
     // FilterService interface methods
@@ -327,9 +336,9 @@ public class ContentFilteringService extends Service implements FilterService,
 
     // FilterService.OverlayUpdater interface
     @Override
-    public synchronized void updateOverlayLayout(AccessibilityNodeInfo rootNode) {
+    public synchronized void updateOverlayLayout(AccessibilityNodeInfo rootNode, int UPDATE_ID) {
         // spawn threads to traverse node
-        ++UPDATE_ID; // increase the update ID before spawning the threads
+        this.UPDATE_ID = UPDATE_ID; // increase the update ID before spawning the threads
         // create a new RelativeLayout for the updated window
         Message msg = mainThreadHandler.obtainMessage();
         msg.arg1 = 3;

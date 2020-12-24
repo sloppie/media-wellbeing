@@ -68,7 +68,7 @@ public class NodeTraverser implements Runnable {
 
     @Override
     public void run() {
-        traverseNode(); // start recursive thread
+        traverseNode(); // start recursive process
     }
 
     /**
@@ -134,7 +134,6 @@ public class NodeTraverser implements Runnable {
     }
 
     // thread-safe
-
     /**
      * This method handles the communication of a child thread communicating that they have finished
      * their operations back to the parent. This helps the parent keep track of the state of
@@ -146,7 +145,7 @@ public class NodeTraverser implements Runnable {
 
         if (parent == null && ((COMPLETE_THREAD_COUNT == THREAD_COUNT) && THREAD_SPAWN_COMPLETE)) {
             filterService.updateWindowManager(UPDATE_ID);
-            Log.d("ServiceArrBlockingQueue", "Called");
+            Log.d("ServiceArrBlockingQueue", "Called Update Window Manager");
         } else if (THREAD_COUNT == COMPLETE_THREAD_COUNT && THREAD_SPAWN_COMPLETE) {
             parent.childThreadComplete(); // notifies parent that the child thread is complete
         }

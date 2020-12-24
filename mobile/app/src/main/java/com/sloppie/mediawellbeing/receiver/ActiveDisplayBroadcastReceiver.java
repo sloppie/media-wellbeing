@@ -46,10 +46,13 @@ public class ActiveDisplayBroadcastReceiver extends BroadcastReceiver {
         if (action.compareTo(UserActionMonitorService.UPDATE_OVERLAY) == 0) {
             AccessibilityNodeInfo rootNode = intent.getParcelableExtra(
                     UserActionMonitorService.ROOT_NODE_INFO);
+            int UPDATE_ID = intent.getIntExtra("UPDATE_ID", -1);
             // start the updateOverlay process
             if (overlayUpdater != null) {
-                overlayUpdater.updateOverlayLayout(rootNode);
-                Log.d(TAG, "Updating Overlay");
+                if (UPDATE_ID != -1) {
+                    overlayUpdater.updateOverlayLayout(rootNode, UPDATE_ID);
+                    Log.d(TAG, "Updating Overlay");
+                }
             } else {
                 Log.d(TAG, "Could not find FilterService.OverlayUpdater class to handle action in Intent");
             }
