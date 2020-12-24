@@ -8,6 +8,8 @@ import android.widget.RelativeLayout;
 
 import com.sloppie.mediawellbeing.service.FilterService;
 
+import java.util.concurrent.ExecutorService;
+
 
 /**
  * This is a utilitarian class that is run on different threads to ease the process of traversing
@@ -26,6 +28,8 @@ public class NodeTraverser implements Runnable {
     // this is the parent MonitoringService that will handle all the UIThread operations that need
     // to be carried out.
     private final FilterService filterService;
+    // ExecutorService that is being used by the this specfic Thread
+    private final ExecutorService executorService;
     // node being traversed by this specific Thread
     private final AccessibilityNodeInfo node;
     // the corresponding UPDATE_ID that will be used as an ID to validate whether a certain thread
@@ -44,17 +48,20 @@ public class NodeTraverser implements Runnable {
     private boolean THREAD_SPAWN_COMPLETE = false;
 
     public NodeTraverser(
-            FilterService filterService, AccessibilityNodeInfo node,
-            int UPDATE_ID, NodeTraverser parent)
+            FilterService filterService, ExecutorService executorService,
+            AccessibilityNodeInfo node, int UPDATE_ID, NodeTraverser parent)
     {
         this.filterService = filterService;
+        this.executorService = executorService;
         this.node = node;
         this.UPDATE_ID = UPDATE_ID;
         this.parent = parent;
     }
 
-    public NodeTraverser(FilterService filterService, AccessibilityNodeInfo node, int UPDATE_ID) {
+    public NodeTraverser(FilterService filterService, ExecutorService executorService,
+                         AccessibilityNodeInfo node, int UPDATE_ID) {
         this.filterService = filterService;
+        this.executorService = executorService;
         this.node = node;
         this.UPDATE_ID = UPDATE_ID;
     }
@@ -99,13 +106,15 @@ public class NodeTraverser implements Runnable {
                     // initialise thread to traverse child and then update THREAD_COUNT
                     try {
                         // initialise childNode traverser
-                        NodeTraverser childNodeTraverser =
-                                new NodeTraverser(
-                                        filterService, node.getChild(i), UPDATE_ID, this);
+                        NodeTraverser childNodeTraverser = new NodeTraverser(
+                                filterService,
+                                executorService,
+                                node.getChild(i),
+                                UPDATE_ID,
+                                this);
                         // initialise new Thread
-                        Thread newThread = new Thread(childNodeTraverser);
                         // start the thread
-                        newThread.start();
+                        executorService.execute(childNodeTraverser);
                         THREAD_COUNT++; // increase thread count
                     } catch (Exception e) {
                         Log.d(TAG, e.toString());
@@ -133,10 +142,11 @@ public class NodeTraverser implements Runnable {
      * children it has spawned have also completed execution.
      */
     public synchronized void childThreadComplete() {
-        COMPLETE_THREAD_COUNT++;
+        ++COMPLETE_THREAD_COUNT;
 
         if (parent == null && ((COMPLETE_THREAD_COUNT == THREAD_COUNT) && THREAD_SPAWN_COMPLETE)) {
             filterService.updateWindowManager(UPDATE_ID);
+            Log.d("ServiceArrBlockingQueue", "Called");
         } else if (THREAD_COUNT == COMPLETE_THREAD_COUNT && THREAD_SPAWN_COMPLETE) {
             parent.childThreadComplete(); // notifies parent that the child thread is complete
         }

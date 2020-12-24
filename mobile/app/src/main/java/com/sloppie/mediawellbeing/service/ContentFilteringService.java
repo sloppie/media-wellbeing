@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.PixelFormat;
-import android.graphics.Point;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -14,7 +13,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
-import android.view.Display;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -28,6 +26,10 @@ import androidx.core.app.NotificationCompat;
 import com.sloppie.mediawellbeing.R;
 import com.sloppie.mediawellbeing.receiver.ActiveDisplayBroadcastReceiver;
 import com.sloppie.mediawellbeing.service.util.NodeTraverser;
+import com.sloppie.mediawellbeing.service.util.ServiceArrayBlockingQueue;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 /**
@@ -75,6 +77,8 @@ public class ContentFilteringService extends Service implements FilterService,
     // is a more recent action that has been started
     private int UPDATE_ID = 1;
 
+    private ServiceArrayBlockingQueue serviceArrayBlockingQueue = null;
+
     // this thread is used to carry out actions on the main thread
     private Handler mainThreadHandler;
 
@@ -94,6 +98,9 @@ public class ContentFilteringService extends Service implements FilterService,
         abdrIntentFilter.addAction(UserActionMonitorService.CLOSE_FOREGROUND_SERVICE);
 
         registerReceiver(activeDisplayBroadcastReceiver, abdrIntentFilter); // register receiver
+
+        // create the ExecutorMonitoringQueue
+        serviceArrayBlockingQueue = new ServiceArrayBlockingQueue();
 
         // start the service as a FOREGROUND_SERVICE
         NotificationCompat.Builder monitorNotification = new NotificationCompat.Builder(
@@ -259,6 +266,7 @@ public class ContentFilteringService extends Service implements FilterService,
         Log.d(TAG, "Service Destroyed");
     }
 
+    // FilterService interface methods
     @Override
     public synchronized void updateWindowManager(int UPDATE_ID) {
         if (UPDATE_ID == this.UPDATE_ID) {
@@ -267,9 +275,12 @@ public class ContentFilteringService extends Service implements FilterService,
                 Message message = mainThreadHandler.obtainMessage();
                 message.arg1 = 1;
                 mainThreadHandler.sendMessage(message);
+                stopExecutorService(UPDATE_ID, true);
             } catch (Exception e) {
                 Log.d(TAG, e.toString());
             }
+        } else {
+            stopExecutorService(UPDATE_ID, false); // stop the Thread as it is no longer needed
         }
     }
 
@@ -288,20 +299,40 @@ public class ContentFilteringService extends Service implements FilterService,
             msg.arg1 = 4;
             msg.setData(extraData);
             mainThreadHandler.sendMessage(msg);
+        } else {
+            // stop the Thread as it is no longer needed
+            stopExecutorService(UPDATE_ID, false);
         }
     }
 
     @Override
-    public void updateOverlayLayout(AccessibilityNodeInfo rootNode) {
+    public void stopExecutorService(int UPDATE_ID, boolean isComplete) {
+        serviceArrayBlockingQueue.blockingRemove(UPDATE_ID, isComplete);
+    }
+
+    @Override
+    public int getDISPLAY_CUTOUT() {
+        return DISPLAY_CUTOUT;
+    }
+
+    // FilterService.OverlayUpdater interface
+    @Override
+    public synchronized void updateOverlayLayout(AccessibilityNodeInfo rootNode) {
         // spawn threads to traverse node
-        UPDATE_ID++; // increase the update ID before spawning the threads
+        ++UPDATE_ID; // increase the update ID before spawning the threads
         // create a new RelativeLayout for the updated window
         Message msg = mainThreadHandler.obtainMessage();
         msg.arg1 = 3;
         mainThreadHandler.sendMessage(msg);
-        NodeTraverser nodeTraverser = new NodeTraverser(this, rootNode, UPDATE_ID);
-        Thread traverserThread = new Thread(nodeTraverser);
-        traverserThread.start();
+        // create a new ThreadPool and then pass it on to the NodeTraverser and keep a record of it
+        // in the ServiceArrayBlockingQueue
+        ExecutorService newExecutorService = Executors.newCachedThreadPool();
+        boolean added = serviceArrayBlockingQueue.blockingPut(newExecutorService, UPDATE_ID);
+        if (added) { // only add if the it has been added to the service array queue
+            NodeTraverser nodeTraverser = new NodeTraverser(
+                    this, newExecutorService, rootNode, UPDATE_ID);
+            newExecutorService.execute(nodeTraverser);
+        }
     }
 
     @Override
@@ -316,10 +347,5 @@ public class ContentFilteringService extends Service implements FilterService,
         ((WindowManager) getSystemService(Context.WINDOW_SERVICE))
                 .removeViewImmediate(relativeLayout);
         Log.d(TAG, "Stopped ContentFilteringService");
-    }
-
-    @Override
-    public int getDISPLAY_CUTOUT() {
-        return DISPLAY_CUTOUT;
     }
 }

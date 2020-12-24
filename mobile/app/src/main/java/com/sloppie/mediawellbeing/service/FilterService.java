@@ -50,6 +50,16 @@ public interface FilterService {
     Context getBaseContext();
 
     /**
+     * This method is used to carry out termination of stale Threads that will not update the
+     * Layout as the UPDATE_ID is already stale.
+     * @param UPDATE_ID this is the id corresponding to the ExecutorService in the BlockingQueue
+     *                  that is going to be terminated.
+     * @param isComplete this is the flag that helps determine the approach that will be used to
+     *                   terminate the service.
+     */
+    void stopExecutorService(int UPDATE_ID, boolean isComplete);
+
+    /**
      * This is used by whichever class that implements it to act as an iterface between it and a
      * BroadcastReceiver service to allow the broadcastReceiver to call methods that allow it to
      * start the process of windowUpdate in the event that a window changes and/or updates.
