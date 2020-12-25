@@ -60,16 +60,24 @@ public class ServiceArrayBlockingQueue {
      * This is used to shutdown an ExecutorService that is currently executing. This does so by
      * referencing the activeServiceIDs field to find a the index of the ExecutorService.
      * in the Event that the ExecutorService has already been spliced out and execution stopped,
-     * this means that this Thread was not able to be terminated thus is just let t finish off
+     * this means that this Thread was not able to be terminated thus is just let it finish off
      * executing.
+     * This function also handles the clean up of all failed Executor shutdowns of all services that
+     * were unable to close after completion and are now just stake.
      * @param UPDATE_ID this is the ID associated with the Executor service that wants to be
      *                  terminated.
      * @param isComplete this helps determine the method that will be used when shutting down the
      *                   ExecutorService.
      */
     public synchronized void blockingRemove(int UPDATE_ID, boolean isComplete) {
+        // there is a bug that hasnt been fixed that allows for Executors that have finished
+        // executing to remain not shut down. As such, these executors need to be removed and
+        // manually shutdown.
+        ArrayList<Integer> staleExecutors = new ArrayList<>();
+
         if (activeServiceIDs.contains(UPDATE_ID)) {
             int serviceIndex = activeServiceIDs.indexOf(UPDATE_ID);
+
             // remove the service and the reference to its ID
             if (!isComplete) {
                 activeServices.get(serviceIndex).shutdownNow(); // shutdown all active threads
@@ -82,8 +90,26 @@ public class ServiceArrayBlockingQueue {
             }
             activeServices.remove(serviceIndex);
             activeServiceIDs.remove(serviceIndex);
+
         } else {
             Log.d("ServiceArrBlockingQueue", "Service already removed");
+        }
+
+        // a stale Executor is qualified by being an UPDATE_ID smaller than the UPDATE_ID that
+        // was scheduled for removal from the activeServices.
+        // find all stale Executors while shutting them down
+        for (int i=0; i<activeServiceIDs.size(); i++) {
+            if (activeServiceIDs.get(i) < UPDATE_ID) {
+                staleExecutors.add(i);
+                activeServices.get(i).shutdownNow(); // shutdown the stale executor
+            }
+        }
+
+        // removing all shutdown stale Executors
+        for (int i=0; i<staleExecutors.size(); i++) {
+            int removableIndex = staleExecutors.get(i);
+            activeServices.remove(removableIndex);
+            activeServiceIDs.remove(removableIndex);
         }
     }
 }

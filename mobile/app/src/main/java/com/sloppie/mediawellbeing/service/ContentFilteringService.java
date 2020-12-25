@@ -300,7 +300,7 @@ public class ContentFilteringService extends Service implements FilterService,
                 mainThreadHandler.sendMessage(message);
                 stopExecutorService(UPDATE_ID, true);
             } catch (Exception e) {
-                Log.d(TAG, e.toString());
+                Log.d(TAG, "Unable to update Window: " + e.toString());
             }
         } else {
             stopExecutorService(UPDATE_ID, false); // stop the Thread as it is no longer needed
