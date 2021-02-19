@@ -1,1 +1,5 @@
 mobile/.idea/*
+pic-urls.txt
+.vscode
+**/.ipynb_checkpoints
+**/*.txt
