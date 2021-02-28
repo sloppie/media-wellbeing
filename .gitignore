@@ -1,5 +1,7 @@
-mobile/.idea/*
+**/.idea
 pic-urls.txt
 .vscode
 **/.ipynb_checkpoints
 **/*.txt
+**/.venv
+**/*.log
