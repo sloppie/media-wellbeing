@@ -1,3 +1,4 @@
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver import ChromeOptions, Chrome
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
@@ -5,6 +6,7 @@ import selenium.webdriver.support.expected_conditions as EC
 from selenium.webdriver.common.by import By
 import time
 import re
+from tqdm import tqdm
 
 PATH = "C:\\Program Files (x86)\\web-drivers\\chrome\\chromedriver.exe"
 chrome_options = ChromeOptions()
@@ -182,24 +184,38 @@ def select_first_image(web_driver):
         return False  # unable to select the image
 
 
-def get_selected_image_link(web_driver):
-    try:
-        selected_image_desc = WebDriverWait(web_driver, timeout=15).until(
-            EC.visibility_of_element_located((By.CLASS_NAME, "c-detail__desc"))
-        )
-        # scroll image into view
-        web_driver.execute_script("arguments[0].scrollIntoView", selected_image_desc)
-        anchor_tag = WebDriverWait(selected_image_desc, 15).until(
-            EC.visibility_of_element_located((By.CLASS_NAME, "js-image-detail-link")))
-        image_href = anchor_tag.get_attribute("href")
-        print(f"href=\"{image_href}\"")
+def get_selected_image_link(web_driver, is_first_image):
+    if (is_first_image):
+        try:
+            selected_image_desc = WebDriverWait(web_driver, timeout=15).until(
+                EC.visibility_of_element_located((By.CLASS_NAME, "c-detail__desc"))
+            )
+            # scroll image into view
+            web_driver.execute_script("arguments[0].scrollIntoView", selected_image_desc)
+        except TimeoutException as te:
+            print(f"{te.__class__.__name__}: Unable to scroll in the selected image into view")
 
-        return image_href
-    except Exception as ex:
-        print("Unable to fetch image href")
-        print(ex)
+        try:
+            anchor_tag = WebDriverWait(web_driver, 15).until(
+                EC.element_to_be_clickable((By.CLASS_NAME, "c-detail__btn")))
+            image_href = anchor_tag.get_attribute("href")
+            # print(f"href=\"{image_href}\"")
 
-        return ""  # shows that the image was not found
+            return image_href
+        except TimeoutException as ex:
+            print(f"{ex.__class__.__name__}: Unable to fetch \"href\" attr of selected image")
+            return ""
+    else:
+        try:
+            anchor_tag = web_driver.find_element(By.CLASS_NAME, "c-detail__btn")
+            image_href = anchor_tag.get_attribute("href")
+            # print(f"href=\"{image_href}\"")
+
+            return image_href
+        except TimeoutException as ex:
+            print(f"{ex.__class__.__name__}: Unable to fetch \"href\" attr of selected image")
+
+            return ""  # shows that the image was not found
 
 
 def move_to_next_image(web_driver):
@@ -258,22 +274,27 @@ if __name__ == "__main__":
             while not success:
                 success = func(driver)
 
+
+    select_first_image(driver)
     # tries to run the whole thing like a graph
     action_graph = [
-        select_first_image,
         get_selected_image_link,
         move_to_next_image,
     ]
 
     print("fetching images...")
-    for i, func in enumerate(action_graph):
-        print(f"Step: {i}, func: {func.__name__}")
-        if func.__name__ == "get_selected_image_link":
-            link = func(driver)
-        else:
-            success = False
-            while not success:
-                success = func(driver)
+    for count in tqdm(range(10)):
+        # fetching the first image requires a slightly different process so we have to confirm
+        # whether it is the fist image or not
+        is_first_image = (count == 0)
+
+        for i, func in enumerate(action_graph):
+            if func.__name__ == "get_selected_image_link":
+                link = func(driver, is_first_image)
+            else:
+                success = False
+                while not success:
+                    success = func(driver)
 
     time.sleep(10)
     driver.quit()
