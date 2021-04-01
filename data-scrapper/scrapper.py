@@ -284,7 +284,7 @@ def download_images(web_driver, search_value, image_list):
 
     link_list = []
 
-    for image_count in tqdm(range(20)):
+    for image_count in tqdm(range(100)):
         # fetching the first image requires a slightly different process so we have to confirm
         # whether it is the fist image or not
         is_first_searched_image = (image_count == 0)
@@ -346,8 +346,6 @@ if __name__ == "__main__":
                 print(search_term)
 
                 download_images(driver, search_term, scrapped_image_list)
-                break
 
     export_scrapped_links(scrapped_image_list)
-    time.sleep(10)
     driver.quit()
