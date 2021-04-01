@@ -270,7 +270,7 @@ def dismiss_add_to_chrome_badge(web_driver):
         return False
 
 
-def download_images(web_driver, search_value, image_list):
+def download_images(web_driver, search_value, target_location):
     search_for_item(web_driver, search_value)
 
     time.sleep(3)
@@ -282,9 +282,9 @@ def download_images(web_driver, search_value, image_list):
         move_to_next_image,
     ]
 
-    link_list = []
+    link_list = []  # stores all the collected links in while scrapping the category
 
-    for image_count in tqdm(range(100)):
+    for image_count in tqdm(range(600)):
         # fetching the first image requires a slightly different process so we have to confirm
         # whether it is the fist image or not
         is_first_searched_image = (image_count == 0)
@@ -298,22 +298,24 @@ def download_images(web_driver, search_value, image_list):
                 while not is_success:
                     is_success = action(web_driver)
 
-    image_list.extend(link_list)
+    # instead of maintaining a list which may increase the amount of memory needed to eun the program for excessively
+    # large lists, it was opted to create a data dir and the search_keyword.txt file after the function continues
+    # executing
+    # dump all the links into a file before proceeding
+    export_scrapped_links(link_list, target_location)
 
 
-def export_scrapped_links(image_links):
+def export_scrapped_links(image_links, target_location):
     data = ""
     for image_link in image_links:
         data += f"{image_link}\n"
 
-    link_file = open("link_file", "w")
+    link_file = open(f"data/{target_location}.txt", "w")
     link_file.write(data)
     link_file.close()
 
 
 if __name__ == "__main__":
-    scrapped_image_list = []
-
     search_for_item_from_homepage(driver, "Test Search")
     time.sleep(3)
     # set up the configuration to allow for explicit images to be shown
@@ -341,11 +343,9 @@ if __name__ == "__main__":
         for i, category in enumerate(categories):
             if category:
                 search_category, new_line = category.split("\n")
-                print(f"Fetching images for the {search_category} category")
+                print(f"Current Category: {search_category}")
                 search_term = f"pornhub {search_category} nude images"
-                print(search_term)
 
-                download_images(driver, search_term, scrapped_image_list)
+                download_images(driver, search_term, search_category)
 
-    export_scrapped_links(scrapped_image_list)
     driver.quit()
