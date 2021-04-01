@@ -15,7 +15,7 @@ chrome_options.add_argument("--incognito")
 driver = Chrome(executable_path=PATH, options=chrome_options)
 
 
-def search_for_item(web_driver, value):
+def search_for_item_from_homepage(web_driver, value):
     try:
         web_driver.get("https://duckduckgo.com")
         # get the search form of the duckduckgo search engine
@@ -24,6 +24,25 @@ def search_for_item(web_driver, value):
             # lambda d: EC.element_to_be_clickable(By.ID, "search_form_input_homepage")
         )
         search_form.click()
+        search_form.send_keys(value)  # enter search
+        search_form.send_keys(Keys.RETURN)
+
+        return True
+    except Exception as ex:
+        print(ex)
+
+        return False
+
+
+def search_for_item(web_driver, value):
+    try:
+        # get the search form of the duckduckgo search engine
+        search_form = WebDriverWait(web_driver, timeout=5).until(
+            lambda d: web_driver.find_element_by_id("search_form_input")
+            # lambda d: EC.element_to_be_clickable(By.ID, "search_form_input_homepage")
+        )
+        search_form.click()
+        search_form.clear()
         search_form.send_keys(value)  # enter search
         search_form.send_keys(Keys.RETURN)
 
@@ -185,7 +204,8 @@ def select_first_image(web_driver):
 
 
 def get_selected_image_link(web_driver, is_first_image):
-    if (is_first_image):
+    time.sleep(1)
+    if is_first_image:
         try:
             selected_image_desc = WebDriverWait(web_driver, timeout=15).until(
                 EC.visibility_of_element_located((By.CLASS_NAME, "c-detail__desc"))
@@ -250,10 +270,51 @@ def dismiss_add_to_chrome_badge(web_driver):
         return False
 
 
-if __name__ == "__main__":
-    print("Running __main__")
-    search_for_item(driver, "Test Search")
+def download_images(web_driver, search_value, image_list):
+    search_for_item(web_driver, search_value)
 
+    time.sleep(3)
+
+    select_first_image(driver)
+    # tries to run the whole thing like a graph
+    search_action_graph = [
+        get_selected_image_link,
+        move_to_next_image,
+    ]
+
+    link_list = []
+
+    for image_count in tqdm(range(20)):
+        # fetching the first image requires a slightly different process so we have to confirm
+        # whether it is the fist image or not
+        is_first_searched_image = (image_count == 0)
+
+        for action in search_action_graph:
+            if action.__name__ == "get_selected_image_link":
+                img_link = action(web_driver, is_first_searched_image)
+                link_list.append(img_link)
+            else:
+                is_success = False
+                while not is_success:
+                    is_success = action(web_driver)
+
+    image_list.extend(link_list)
+
+
+def export_scrapped_links(image_links):
+    data = ""
+    for image_link in image_links:
+        data += f"{image_link}\n"
+
+    link_file = open("link_file", "w")
+    link_file.write(data)
+    link_file.close()
+
+
+if __name__ == "__main__":
+    scrapped_image_list = []
+
+    search_for_item_from_homepage(driver, "Test Search")
     time.sleep(3)
     # set up the configuration to allow for explicit images to be shown
     config_graph = [
@@ -265,6 +326,7 @@ if __name__ == "__main__":
     ]
 
     print("setting up image config")
+
     for i, func in enumerate(config_graph):
         print(f"Step: {i}, func: {func.__name__}")
         if func.__name__ == "get_selected_image_link":
@@ -274,27 +336,18 @@ if __name__ == "__main__":
             while not success:
                 success = func(driver)
 
+    with open("keylist.txt") as key_list:
+        categories = key_list.readlines()
+        for i, category in enumerate(categories):
+            if category:
+                search_category, new_line = category.split("\n")
+                print(f"Fetching images for the {search_category} category")
+                search_term = f"pornhub {search_category} nude images"
+                print(search_term)
 
-    select_first_image(driver)
-    # tries to run the whole thing like a graph
-    action_graph = [
-        get_selected_image_link,
-        move_to_next_image,
-    ]
+                download_images(driver, search_term, scrapped_image_list)
+                break
 
-    print("fetching images...")
-    for count in tqdm(range(10)):
-        # fetching the first image requires a slightly different process so we have to confirm
-        # whether it is the fist image or not
-        is_first_image = (count == 0)
-
-        for i, func in enumerate(action_graph):
-            if func.__name__ == "get_selected_image_link":
-                link = func(driver, is_first_image)
-            else:
-                success = False
-                while not success:
-                    success = func(driver)
-
+    export_scrapped_links(scrapped_image_list)
     time.sleep(10)
     driver.quit()
