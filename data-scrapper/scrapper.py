@@ -15,7 +15,11 @@ executable_path = "chrome-driver/chromedriver.exe" if re.search("Windows", platf
 
 PATH = "C:\\Program Files (x86)\\web-drivers\\chrome\\chromedriver.exe"
 chrome_options = ChromeOptions()
-chrome_options.add_argument("--incognito")
+
+if re.search("Windows", platform.platform()):
+    chrome_options.add_argument("--incognito")
+else:
+    chrome_options.add_argument("--headless")
 
 driver = Chrome(executable_path=executable_path, options=chrome_options)
 
