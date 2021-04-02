@@ -10,7 +10,7 @@ from tqdm import tqdm
 import platform
 
 executable_path = "chrome-driver/chromedriver.exe" if re.search("Windows", platform.platform())\
-    else "chromedriver/chromedriver"
+    else "chrome-driver/chromedriver"
 
 
 PATH = "C:\\Program Files (x86)\\web-drivers\\chrome\\chromedriver.exe"
