@@ -4,7 +4,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 import selenium.webdriver.support.expected_conditions as EC
-from pyvirtualdisplay import Display
+# from pyvirtualdisplay import Display
 import time
 import re
 from tqdm import tqdm
@@ -15,14 +15,14 @@ executable_path = "chrome-driver/chromedriver.exe" if re.search("Windows", platf
 
 
 PATH = "C:\\Program Files (x86)\\web-drivers\\chrome\\chromedriver.exe"
-display = None  # contains the display used on the server
+# display = None  # contains the display used on the server
 chrome_options = ChromeOptions()
 
 if re.search("Windows", platform.platform()):
     chrome_options.add_argument("--incognito")
 else:
-    display = Display(False, size=(1024, 768))
-    display.start()
+    # display = Display(False, size=(1024, 768))
+    # display.start()
     chrome_options.add_argument("--headless")
 
 driver = Chrome(executable_path=executable_path, options=chrome_options)
@@ -364,5 +364,5 @@ if __name__ == "__main__":
     driver.quit()
 
     # close the display for the server
-    if not re.search("Windows", platform.platform()):
-        display.stop()
+    # if not re.search("Windows", platform.platform()):
+    #     display.stop()
