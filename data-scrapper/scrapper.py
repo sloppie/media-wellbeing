@@ -18,12 +18,9 @@ PATH = "C:\\Program Files (x86)\\web-drivers\\chrome\\chromedriver.exe"
 # display = None  # contains the display used on the server
 chrome_options = ChromeOptions()
 
+# Incognito is always set on local Windows machines
 if re.search("Windows", platform.platform()):
     chrome_options.add_argument("--incognito")
-else:
-    # display = Display(False, size=(1024, 768))
-    # display.start()
-    chrome_options.add_argument("--headless")
 
 driver = Chrome(executable_path=executable_path, options=chrome_options)
 
@@ -297,19 +294,29 @@ def download_images(web_driver, search_value, target_location):
 
     link_list = []  # stores all the collected links in while scrapping the category
 
-    for image_count in tqdm(range(600)):
-        # fetching the first image requires a slightly different process so we have to confirm
-        # whether it is the fist image or not
-        is_first_searched_image = (image_count == 0)
+    # context manager for a 600 image file size
+    with tqdm(total=600) as progress_bar:
+        image_count = 0
+        is_first_image = True  # determines whether a click() action will be performed before the scrapping link starts
+        while image_count < 600:
+            # fetching the first image requires a slightly different process so we have to confirm
+            # whether it is the fist image or not
+            for action in search_action_graph:
+                if action.__name__ == "get_selected_image_link":
+                    img_link = action(web_driver, is_first_image)
 
-        for action in search_action_graph:
-            if action.__name__ == "get_selected_image_link":
-                img_link = action(web_driver, is_first_searched_image)
-                link_list.append(img_link)
-            else:
-                is_success = False
-                while not is_success:
-                    is_success = action(web_driver)
+                    # Naively look for gifs, if the .gif extension is not found, update the list_link with the link
+                    if not re.search("\.gif", img_link):
+                        link_list.append(img_link)
+                        progress_bar.update(1)  # update progress with new image
+                        image_count += 1  # increment image count by one
+
+                    if is_first_image:  # the first image has now already been clicked
+                        is_first_image = False
+                else:
+                    is_success = False
+                    while not is_success:
+                        is_success = action(web_driver)
 
     # instead of maintaining a list which may increase the amount of memory needed to eun the program for excessively
     # large lists, it was opted to create a data dir and the search_keyword.txt file after the function continues
@@ -362,7 +369,3 @@ if __name__ == "__main__":
                 download_images(driver, search_term, search_category)
 
     driver.quit()
-
-    # close the display for the server
-    # if not re.search("Windows", platform.platform()):
-    #     display.stop()
