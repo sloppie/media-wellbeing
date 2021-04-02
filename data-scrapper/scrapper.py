@@ -2,17 +2,22 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver import ChromeOptions, Chrome
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
-import selenium.webdriver.support.expected_conditions as EC
 from selenium.webdriver.common.by import By
+import selenium.webdriver.support.expected_conditions as EC
 import time
 import re
 from tqdm import tqdm
+import platform
+
+executable_path = "chrome-driver/chromedriver.exe" if re.search("Windows", platform.platform())\
+    else "chromedriver/chromedriver"
+
 
 PATH = "C:\\Program Files (x86)\\web-drivers\\chrome\\chromedriver.exe"
 chrome_options = ChromeOptions()
 chrome_options.add_argument("--incognito")
 
-driver = Chrome(executable_path=PATH, options=chrome_options)
+driver = Chrome(executable_path=executable_path, options=chrome_options)
 
 
 def search_for_item_from_homepage(web_driver, value):
@@ -349,3 +354,4 @@ if __name__ == "__main__":
                 download_images(driver, search_term, search_category)
 
     driver.quit()
+    display.stop()
