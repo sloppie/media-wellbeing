@@ -300,9 +300,8 @@ def download_images(web_driver, search_value, target_location):
 
     # context manager for a 600 image file size
     with tqdm(total=600) as progress_bar:
-        image_count = 0
         is_first_image = True  # determines whether a click() action will be performed before the scrapping link starts
-        while image_count < 600:
+        while len(link_list) < 600:
             # fetching the first image requires a slightly different process so we have to confirm
             # whether it is the fist image or not
             for action in search_action_graph:
@@ -313,7 +312,6 @@ def download_images(web_driver, search_value, target_location):
                     if not re.search("\.gif", img_link):
                         link_list.append(img_link)
                         progress_bar.update(1)  # update progress with new image
-                        image_count += 1  # increment image count by one
 
                     if is_first_image:  # the first image has now already been clicked
                         is_first_image = False
