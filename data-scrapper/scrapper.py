@@ -9,6 +9,7 @@ import time
 import re
 from tqdm import tqdm
 import platform
+import os
 
 executable_path = "chrome-driver/chromedriver.exe" if re.search("Windows", platform.platform())\
     else "chrome-driver/chromedriver"
@@ -18,11 +19,11 @@ PATH = "C:\\Program Files (x86)\\web-drivers\\chrome\\chromedriver.exe"
 display = None  # contains the display used on the server
 chrome_options = ChromeOptions()
 
-# Incognito is always set on local Windows machines
+# Incognito is always set on a local Windows machines
 if re.search("Windows", platform.platform()):
     chrome_options.add_argument("--incognito")
 else:
-    display = Display(False, size=(1024, 768))
+    display = Display(visible=False, size=(1024, 768))
     display.start()
     chrome_options.add_argument("--headless")
 
@@ -35,7 +36,6 @@ def search_for_item_from_homepage(web_driver, value):
         # get the search form of the duckduckgo search engine
         search_form = WebDriverWait(web_driver, timeout=5).until(
             lambda d: web_driver.find_element_by_id("search_form_input_homepage")
-            # lambda d: EC.element_to_be_clickable(By.ID, "search_form_input_homepage")
         )
         search_form.click()
         search_form.send_keys(value)  # enter search
@@ -53,7 +53,6 @@ def search_for_item(web_driver, value):
         # get the search form of the duckduckgo search engine
         search_form = WebDriverWait(web_driver, timeout=5).until(
             lambda d: web_driver.find_element_by_id("search_form_input")
-            # lambda d: EC.element_to_be_clickable(By.ID, "search_form_input_homepage")
         )
         search_form.click()
         search_form.clear()
@@ -94,6 +93,7 @@ def turn_off_search_moderation(web_driver):
 
 
 def select_image_tab(web_driver):
+    time.sleep(1)
     try:
         duckbar = WebDriverWait(web_driver, timeout=15).until(
             lambda d: web_driver.find_element_by_id("duckbar_static")
@@ -108,7 +108,14 @@ def select_image_tab(web_driver):
                 list_item.click()
                 break
 
-        return True
+        # verify that the active tab element in #duckbar_static is "Images"
+        duckbar = WebDriverWait(web_driver, timeout=15).until(
+            lambda d: web_driver.find_element_by_id("duckbar_static")
+        )
+        active_tab = WebDriverWait(web_driver, timeout=10).until(
+            EC.visibility_of_element_located((By.CLASS_NAME, "is-active"))
+        )
+        return active_tab.text == "Images"
     except Exception as ex:
         print(ex)
 
@@ -137,7 +144,11 @@ def set_image_size(web_driver):
         # changes that come with changing the flag in question
         time.sleep(2)
 
-        return True
+        size_dropdown = WebDriverWait(web_driver, timeout=15).until(
+            EC.visibility_of_element_located((By.CLASS_NAME, "dropdown--size"))
+        )
+
+        return size_dropdown.text == "Medium"
     except Exception as ex:
         print(ex)
 
@@ -162,7 +173,11 @@ def set_image_type(web_driver):
         # changes that come with changing the flag in question
         time.sleep(2)
 
-        return True
+        type_dropdown = WebDriverWait(web_driver, timeout=15).until(
+            EC.visibility_of_element_located((By.CLASS_NAME, "dropdown--type"))
+        )
+
+        return type_dropdown.text == "Photograph"
     except Exception as ex:
         print(ex)
 
@@ -196,7 +211,11 @@ def set_moderation_off(web_driver):
         # changes that come with changing the flag in question
         time.sleep(2)
 
-        return True
+        filter_dropdown = WebDriverWait(web_driver, 15).until(
+            EC.visibility_of_element_located((By.CLASS_NAME, "dropdown--safe-search"))
+        )
+
+        return filter_dropdown.text == "Safe search: off"
     except Exception as ex:
         print(ex)
 
@@ -233,7 +252,6 @@ def get_selected_image_link(web_driver, is_first_image):
             anchor_tag = WebDriverWait(web_driver, 15).until(
                 EC.element_to_be_clickable((By.CLASS_NAME, "c-detail__btn")))
             image_href = anchor_tag.get_attribute("href")
-            # print(f"href=\"{image_href}\"")
 
             return image_href
         except TimeoutException as ex:
@@ -243,7 +261,6 @@ def get_selected_image_link(web_driver, is_first_image):
         try:
             anchor_tag = web_driver.find_element(By.CLASS_NAME, "c-detail__btn")
             image_href = anchor_tag.get_attribute("href")
-            # print(f"href=\"{image_href}\"")
 
             return image_href
         except TimeoutException as ex:
@@ -267,6 +284,7 @@ def move_to_next_image(web_driver):
 
 
 def dismiss_add_to_chrome_badge(web_driver):
+    time.sleep(1)
     try:
         badge_link = WebDriverWait(web_driver, 15).until(
             lambda d: web_driver.find_element(By.CLASS_NAME, "badge-link")
@@ -337,6 +355,24 @@ def export_scrapped_links(image_links, target_location):
     link_file.close()
 
 
+def attempt_recovery(expected_downloads):
+    # gets all the files removing the file extension
+    already_downloaded = [f.name.replace(".txt", "") for f in os.scandir("data")]
+
+    remaining_list = []
+    for img_category in expected_downloads:
+        try:
+            if img_category:
+                # already_downloaded.index(img_category.replace("\n", ""))
+                remaining_list.append(img_category.replace("\n", ""))
+        except Exception as not_found:
+            # if an exception is thrown, the item has not yet been downloaded thus we can add it to the list of items
+            # that need to be downloaded.
+            remaining_list.append(img_category.replace("\n", ""))
+
+    return remaining_list
+
+
 if __name__ == "__main__":
     search_for_item_from_homepage(driver, "Test Search")
     time.sleep(3)
@@ -349,9 +385,15 @@ if __name__ == "__main__":
         set_image_type,
     ]
 
-    print("setting up image config")
+    remaining_categories = None
+    with open("keylist.txt") as key_list:
+        categories = key_list.readlines()
+        remaining_categories = attempt_recovery(categories)
+        print(f"remaining categories are: {len(remaining_categories)}")
 
+    print("setting up image config")
     for i, func in enumerate(config_graph):
+        time.sleep(3)  # this allows the window time to refresh
         print(f"Step: {i}, func: {func.__name__}")
         if func.__name__ == "get_selected_image_link":
             link = func(driver)
@@ -360,15 +402,12 @@ if __name__ == "__main__":
             while not success:
                 success = func(driver)
 
-    with open("keylist.txt") as key_list:
-        categories = key_list.readlines()
-        for i, category in enumerate(categories):
-            if category:
-                search_category, new_line = category.split("\n")
-                print(f"Current Category: {search_category}")
-                search_term = f"pornhub {search_category} nude images"
+    for i, category in enumerate(remaining_categories):
+        if category:
+            print(f"Current Category: {category}")
+            search_term = f"pornhub {category} nude images"
 
-                download_images(driver, search_term, search_category)
+            download_images(driver, search_term, category)
 
     driver.quit()
     # if running on the server, close the virtual display
