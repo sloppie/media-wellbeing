@@ -330,6 +330,8 @@ def download_images(web_driver, search_value, target_location):
                     if not re.search("\.gif", img_link):
                         link_list.append(img_link)
                         progress_bar.update(1)  # update progress with new image
+                    else:
+                        print("----Skipping GIF----")
 
                     if is_first_image:  # the first image has now already been clicked
                         is_first_image = False
@@ -363,8 +365,7 @@ def attempt_recovery(expected_downloads):
     for img_category in expected_downloads:
         try:
             if img_category:
-                # already_downloaded.index(img_category.replace("\n", ""))
-                remaining_list.append(img_category.replace("\n", ""))
+                already_downloaded.index(img_category.replace("\n", ""))
         except Exception as not_found:
             # if an exception is thrown, the item has not yet been downloaded thus we can add it to the list of items
             # that need to be downloaded.
