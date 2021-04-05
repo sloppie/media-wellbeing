@@ -343,25 +343,37 @@ def download_images(web_driver, search_value, target_location):
     export_scrapped_links(link_list, target_location)
 
 
+# this method is used to remove the '/' substr that may confuse the compiler to thinking that we are going a sub
+# directory deeper. This substr is replaced with " "
+def normalize_str(input_str):
+    if "/" in input_str:
+        return input_str.replace("/", " ")
+
+    return input_str
+
+
 def export_scrapped_links(image_links, target_location):
     data = ""
     for image_link in image_links:
         data += f"{image_link}\n"
 
-    link_file = open(f"data/{target_location}.txt", "w")
+    link_file = open(f"data/{normalize_str(target_location)}.txt", "w")
     link_file.write(data)
     link_file.close()
 
 
 def attempt_recovery(expected_downloads):
+    print("attempting recovery...")
     # gets all the files removing the file extension
     already_downloaded = [f.name.replace(".txt", "") for f in os.scandir("data")]
 
     remaining_list = []
-    for img_category in expected_downloads:
+    for img_category in tqdm(expected_downloads):
         try:
             if img_category:
-                already_downloaded.index(img_category.replace("\n", ""))
+                # for the edge case that contains the substr "/", it needs to be replaced snce that will be wrongly
+                # interpreted as a sub directory. As such it will be replaced with " "
+                already_downloaded.index(normalize_str(img_category.replace("\n", "")))
         except Exception as not_found:
             # if an exception is thrown, the item has not yet been downloaded thus we can add it to the list of items
             # that need to be downloaded.
