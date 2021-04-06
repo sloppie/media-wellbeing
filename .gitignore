@@ -2,6 +2,6 @@
 pic-urls.txt
 .vscode
 **/.ipynb_checkpoints
-**/*.txt
+./*.txt
 **/.venv
 **/*.log
