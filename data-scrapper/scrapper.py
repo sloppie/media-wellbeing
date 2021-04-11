@@ -389,7 +389,6 @@ def download_neutral_images(web_driver, search_value, target_location):
     # large lists, it was opted to create a data dir and the search_keyword.txt file after the function continues
     # executing
     # dump all the links into a file before proceeding
-    print("exporting neutral images...")
     export_scrapped_links(link_list, target_location, "neutral")
 
 
