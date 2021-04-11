@@ -5,11 +5,13 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 import selenium.webdriver.support.expected_conditions as EC
 from pyvirtualdisplay import Display
+from tqdm import tqdm
 import time
 import re
-from tqdm import tqdm
 import platform
 import os
+import sys
+import json
 
 executable_path = "chrome-driver/chromedriver.exe" if re.search("Windows", platform.platform())\
     else "chrome-driver/chromedriver"
@@ -192,7 +194,7 @@ def set_image_type(web_driver):
 #   - type: Photograph (to avoid accidental GIFs along the automated search) -> dropdown--type
 
 
-def set_moderation_off(web_driver):
+def set_moderation(web_driver, moderation_type):
     try:
         filter_dropdown = WebDriverWait(web_driver, 15).until(
             EC.visibility_of_element_located((By.CLASS_NAME, "dropdown--safe-search"))
@@ -203,9 +205,9 @@ def set_moderation_off(web_driver):
         )
         anchor_elements = modal_list.find_elements_by_tag_name("a")
         for anchor_element in anchor_elements:
-            if re.search("Off", anchor_element.text):
+            if re.search(moderation_type, anchor_element.text):
                 anchor_element.click()
-                print("SafeSearch set to: off")
+                print(f"SafeSearch set to: {moderation_type}")
                 break
         # This sleep is necessary since the window needs to refresh to update images with the new
         # changes that come with changing the flag in question
@@ -215,7 +217,13 @@ def set_moderation_off(web_driver):
             EC.visibility_of_element_located((By.CLASS_NAME, "dropdown--safe-search"))
         )
 
-        return filter_dropdown.text == "Safe search: off"
+        if moderation_type == "Off":
+            return filter_dropdown.text == "Safe search: off"
+        elif moderation_type == "Moderate":
+            return filter_dropdown.text == "Safe search: moderate"
+        elif moderation_type == "Strict":
+            return filter_dropdown.text == "Safe search: strict"
+
     except Exception as ex:
         print(ex)
 
@@ -340,7 +348,49 @@ def download_images(web_driver, search_value, target_location):
     # large lists, it was opted to create a data dir and the search_keyword.txt file after the function continues
     # executing
     # dump all the links into a file before proceeding
-    export_scrapped_links(link_list, target_location)
+    export_scrapped_links(link_list, target_location, "explicit")
+
+
+def download_neutral_images(web_driver, search_value, target_location):
+    search_for_item(web_driver, search_value)
+
+    time.sleep(3)
+
+    select_first_image(driver)
+    # tries to run the whole thing like a graph
+    search_action_graph = [
+        get_selected_image_link,
+        move_to_next_image,
+    ]
+
+    link_list = []  # stores all the collected links in while scrapping the category
+
+    # context manager for a 600 image file size
+    with tqdm(total=20) as progress_bar:
+        is_first_image = True  # determines whether a click() action will be performed before the scrapping link starts
+        while len(link_list) < 20:
+            # fetching the first image requires a slightly different process so we have to confirm
+            # whether it is the fist image or not
+            for action in search_action_graph:
+                if action.__name__ == "get_selected_image_link":
+                    img_link = action(web_driver, is_first_image)
+
+                    link_list.append(img_link)
+                    progress_bar.update(1)  # update progress with new image
+
+                    if is_first_image:  # the first image has now already been clicked
+                        is_first_image = False
+                else:
+                    is_success = False
+                    while not is_success:
+                        is_success = action(web_driver)
+
+    # instead of maintaining a list which may increase the amount of memory needed to eun the program for excessively
+    # large lists, it was opted to create a data dir and the search_keyword.txt file after the function continues
+    # executing
+    # dump all the links into a file before proceeding
+    print("exporting neutral images...")
+    export_scrapped_links(link_list, target_location, "neutral")
 
 
 # this method is used to remove the '/' substr that may confuse the compiler to thinking that we are going a sub
@@ -352,20 +402,31 @@ def normalize_str(input_str):
     return input_str
 
 
-def export_scrapped_links(image_links, target_location):
+def export_scrapped_links(image_links, target_location, image_type):
     data = ""
     for image_link in image_links:
         data += f"{image_link}\n"
+    
+    link_file = None
+    # Images are either saved in the "neutral-data" folder or the "data" based on the image_type
+    if image_type == "explicit":
+        link_file = open(f"data/{normalize_str(target_location)}.txt", "w")
+    else:
+        link_file = open(f"neutral-data/{normalize_str(target_location)}.txt", "w")
 
-    link_file = open(f"data/{normalize_str(target_location)}.txt", "w")
     link_file.write(data)
     link_file.close()
 
 
-def attempt_recovery(expected_downloads):
-    print("attempting recovery...")
-    # gets all the files removing the file extension
-    already_downloaded = [f.name.replace(".txt", "") for f in os.scandir("data")]
+def attempt_recovery(expected_downloads, image_type):
+    print(f"attempting recovery for {image_type} images...")
+    # this function first looks for the image type input by the user, if explicit, it looks in the "data" dir
+    # else if "neutral", it looks in the "neutral-data" dir
+    already_downloaded = None  # store all the filenames of the relevant directory
+    if image_type == "explicit":
+        already_downloaded = [f.name.replace(".txt", "") for f in os.scandir("data")]
+    else:
+        already_downloaded = [f.name.replace(".txt", "") for f in os.scandir("neutral-data")]
 
     remaining_list = []
     for img_category in tqdm(expected_downloads):
@@ -382,6 +443,43 @@ def attempt_recovery(expected_downloads):
     return remaining_list
 
 
+def fetch_explicit_images(web_driver):
+    remaining_categories = None
+    with open("keylist.txt") as key_list:
+        categories = key_list.readlines()
+        remaining_categories = attempt_recovery(categories, "explicit")
+        print(f"remaining categories are: {len(remaining_categories)}")
+
+    for i, category in enumerate(remaining_categories):
+        if category:
+            print(f"Current Category: {category}")
+            search_term = f"pornhub {category} nude images"
+
+            download_images(web_driver, search_term, category)
+
+
+def fetch_neutral_images(web_driver):
+    imagenet_categories = None
+    # Load the JSON from 'neutral-keylist.json'
+    with open("neutral-keylist.json") as nkl:
+        imagenet_categories = json.load(nkl)
+    remaining_categories = None
+    categories = [f"{i}" for i in range(1000)]
+    remaining_categories = attempt_recovery(categories, "explicit")
+    print(f"remaining categories are: {len(remaining_categories)}")
+
+    # remaining categories for the neutral images are fetched by first eliminating all
+    # the number files that have been downloaded [range from 0 - 999] and after remaining
+    # with the undownloaded numbers, the keys to be keywords to be used to scrap for the images are
+    # fetched using the undownloaded numbers from the attempted recovery.
+    for category in remaining_categories:
+        if category:
+            print(f"Current Category: {imagenet_categories[category]}")
+            search_term = f"{imagenet_categories[category]} images"  # a subtle add to put preference to images in the search engine
+
+            download_neutral_images(web_driver, search_term, category)
+
+
 if __name__ == "__main__":
     search_for_item_from_homepage(driver, "Test Search")
     time.sleep(3)
@@ -389,34 +487,42 @@ if __name__ == "__main__":
     config_graph = [
         dismiss_add_to_chrome_badge,
         select_image_tab,
-        set_moderation_off,
+        set_moderation,
         set_image_size,
         set_image_type,
     ]
 
-    remaining_categories = None
-    with open("keylist.txt") as key_list:
-        categories = key_list.readlines()
-        remaining_categories = attempt_recovery(categories)
-        print(f"remaining categories are: {len(remaining_categories)}")
+    try:
+        if sys.argv[1] == "--type=neutral":
+            image_type = "neutral"
+        else:
+            image_type = "explicit"
+    except:
+        print("Couldn't find specified image type argument.\nFetching explicit images by default")
+        image_type = "explicit"
+    
+    print(f"Image type set to: {image_type}")
 
-    print("setting up image config")
+    print("setting up image config...")
     for i, func in enumerate(config_graph):
         time.sleep(3)  # this allows the window time to refresh
         print(f"Step: {i}, func: {func.__name__}")
-        if func.__name__ == "get_selected_image_link":
-            link = func(driver)
+        if func.__name__ == "set_moderation":
+            # if the content moderation is for neutral images, then the duckduckgo search engine is
+            # set to "Strict" to narrow the chances of fetching explicit images to nearly 0.0
+            if image_type == "explicit":
+                func(driver, "Off")
+            else:
+                func(driver, "Strict")
         else:
             success = False
             while not success:
                 success = func(driver)
-
-    for i, category in enumerate(remaining_categories):
-        if category:
-            print(f"Current Category: {category}")
-            search_term = f"pornhub {category} nude images"
-
-            download_images(driver, search_term, category)
+    
+    if image_type == "neutral":
+        fetch_neutral_images(driver)
+    else:
+        fetch_explicit_images(driver)
 
     driver.quit()
     # if running on the server, close the virtual display
