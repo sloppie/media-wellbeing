@@ -371,9 +371,9 @@ def download_neutral_images(web_driver, search_value, target_location):
     link_list = []  # stores all the collected links in while scrapping the category
 
     # context manager for a 600 image file size
-    with tqdm(total = 3) as progress_bar:
+    with tqdm(total = 20) as progress_bar:
         is_first_image = True  # determines whether a click() action will be performed before the scrapping link starts
-        while len(link_list) < 3:
+        while len(link_list) <= 20:
             # fetching the first image requires a slightly different process so we have to confirm
             # whether it is the fist image or not
             time.sleep(1)
