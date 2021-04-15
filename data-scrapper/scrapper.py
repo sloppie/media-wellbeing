@@ -54,15 +54,24 @@ def search_for_item_from_homepage(web_driver, value):
 def search_for_item(web_driver, value):
     try:
         # get the search form of the duckduckgo search engine
-        search_form = WebDriverWait(web_driver, timeout=5).until(
+        search_form = WebDriverWait(web_driver, timeout=15).until(
             lambda d: web_driver.find_element_by_id("search_form_input")
         )
-        search_form.click()
-        search_form.clear()
+        # search_form.click()
+        try:
+            search_form.clear()
+        except:
+            pass
         search_form.send_keys(value)  # enter search
         search_form.send_keys(Keys.RETURN)
 
-        return True
+        search_form = WebDriverWait(web_driver, timeout=15).until(
+            lambda d: web_driver.find_element_by_id("search_form_input")
+        )
+
+        search_val = search_form.get_attribute("value")
+        print(f"New search Value: {search_val}")
+        return search_val == value
     except Exception as ex:
         print(ex)
 
@@ -193,8 +202,6 @@ def set_image_type(web_driver):
 # since the search filter is already turned off, toggle the following filters:
 #   - size: change to "Medium" -> dropdown--size
 #   - type: Photograph (to avoid accidental GIFs along the automated search) -> dropdown--type
-
-
 def set_moderation(web_driver, moderation_type):
     try:
         filter_dropdown = WebDriverWait(web_driver, 15).until(
@@ -262,7 +269,6 @@ def get_selected_image_link(web_driver, is_first_image):
                 EC.element_to_be_clickable((By.CLASS_NAME, "c-detail__btn")))
             image_href = anchor_tag.get_attribute("href")
 
-            print(image_href)
             return image_href
         except TimeoutException as ex:
             print(f"{ex.__class__.__name__}: Unable to fetch \"href\" attr of selected image")
@@ -395,7 +401,7 @@ def download_neutral_images(web_driver, search_value, target_location):
     # large lists, it was opted to create a data dir and the search_keyword.txt file after the function continues
     # executing
     # dump all the links into a file before proceeding
-    print(link_list)
+    # print(link_list)
     export_scrapped_links(link_list, target_location, "neutral")
 
 
