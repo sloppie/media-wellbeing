@@ -1,5 +1,6 @@
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver import ChromeOptions, Chrome
+from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
@@ -261,14 +262,18 @@ def get_selected_image_link(web_driver, is_first_image):
                 EC.element_to_be_clickable((By.CLASS_NAME, "c-detail__btn")))
             image_href = anchor_tag.get_attribute("href")
 
+            print(image_href)
             return image_href
         except TimeoutException as ex:
             print(f"{ex.__class__.__name__}: Unable to fetch \"href\" attr of selected image")
             return ""
     else:
         try:
-            anchor_tag = web_driver.find_element(By.CLASS_NAME, "c-detail__btn")
-            image_href = anchor_tag.get_attribute("href")
+            # The details pane contains three panes at all times unless it is the first image that
+            # has been selected. In this panes,it is advised to select all panes and just pick
+            # out for yourself the center pane `1` (index) which contains the actively displayed image
+            anchor_tag = web_driver.find_elements(By.CLASS_NAME, "c-detail__btn")
+            image_href = anchor_tag[1].get_attribute("href")
 
             return image_href
         except TimeoutException as ex:
@@ -366,11 +371,12 @@ def download_neutral_images(web_driver, search_value, target_location):
     link_list = []  # stores all the collected links in while scrapping the category
 
     # context manager for a 600 image file size
-    with tqdm(total = 20) as progress_bar:
+    with tqdm(total = 3) as progress_bar:
         is_first_image = True  # determines whether a click() action will be performed before the scrapping link starts
-        while len(link_list) < 20:
+        while len(link_list) < 3:
             # fetching the first image requires a slightly different process so we have to confirm
             # whether it is the fist image or not
+            time.sleep(1)
             for action in search_action_graph:
                 if action.__name__ == "get_selected_image_link":
                     img_link = action(web_driver, is_first_image)
@@ -389,6 +395,7 @@ def download_neutral_images(web_driver, search_value, target_location):
     # large lists, it was opted to create a data dir and the search_keyword.txt file after the function continues
     # executing
     # dump all the links into a file before proceeding
+    print(link_list)
     export_scrapped_links(link_list, target_location, "neutral")
 
 
