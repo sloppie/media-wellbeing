@@ -318,7 +318,7 @@ def dismiss_add_to_chrome_badge(web_driver):
         return True
     except Exception as ex:
         print(ex)
-        return False
+        return True  # this is not an integral part of the scrapping
 
 
 def download_images(web_driver, search_value, target_location):
