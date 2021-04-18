@@ -7,4 +7,4 @@ pic-urls.txt
 **/*.log
 neutral-urls.txt
 convolutional-neural-net/*
-pre-processing/*
+pre-processing/data/explicit/*
