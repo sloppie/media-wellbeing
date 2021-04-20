@@ -5,7 +5,7 @@ import pandas as pd
 import imageio
 from PIL import Image
 import urllib
-from tqdm import tqdm
+from tqdm import tqdm, trange
 
 
 # Function extracts the image from a GIF URL that is provided in the parameter
@@ -138,7 +138,7 @@ def populate_segments(upper_bound, dataset_type, segment_type, segment):
   imgs = []
   outs = []
 
-  for i in tqdm(len(segment)):
+  for i in trange(len(segment), desc=f"Segment from {upper_bound - 99} - {upper_bound}"):
     img_arr = extract_img(segment.iloc[i]["img_url"])
 
     if img_arr is not None:
