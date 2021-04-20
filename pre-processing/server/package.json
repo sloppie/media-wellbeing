@@ -1,0 +1,16 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "Serves the stored np arrays made after image scrapping",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index"
+  },
+  "repository": "\"https://github.com/sloppie/media-wellbeing\"",
+  "author": "Sloppie",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}

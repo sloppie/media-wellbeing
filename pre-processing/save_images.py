@@ -86,6 +86,16 @@ def populate_dataset(dataset_type):
   save_dataset(dataset_type, training_set, evaluation_set)
 
 
+def save_arr(location, dataset):
+  """
+  Saves the dataset in the specified location
+  location: specific absolute location the data will be saved
+  dataset: np.array that is being saved
+  """
+  with open(location, "wb") as target_file:
+    np.save(target_file, dataset)
+
+
 def save_dataset(dataset_type, train, test):
   save_location = f"data/processed-data/{dataset_type}"
   train_imgs_location = f"{save_location}/train-imgs.npy"
@@ -93,9 +103,6 @@ def save_dataset(dataset_type, train, test):
   test_imgs_location = f"{save_location}/test-imgs.npy"
   test_out_location = f"{save_location}/test-out.npy"
 
-  def save_arr(location, dataset):
-    with open(location, "wb") as target_file:
-      np.save(target_file, dataset)
   
   # training set
   save_arr(train_imgs_location, train[0])  # save the training images
@@ -106,8 +113,49 @@ def save_dataset(dataset_type, train, test):
   save_arr(test_out_location, test[1])  # save the training images
 
 
+def save_segment(upper_bound, dataset_type, segment_type, segment_dataset):
+  """
+  upper_bound (int): This is the last number in the longer list of images that is extracted by this func
+  dataset_type: "50-50, 70-30, 80-20, 90-10" based on the current type that is being downloaded
+  segment_type: "train | test" based on the dataset type
+  sample_imgs: these is a list of numoy arrays of the corresponding images of the segment
+  sample_outs: thesea are the corresponding correct outputs of the images
+  """
+  img_save_location = f"data/processed-data/{dataset_type}/{segment_type}-{upper_bound}-img.npy"
+  out_save_location = f"data/processed-data/{dataset_type}/{segment_type}-{upper_bound}-out.npy"
+
+  save_arr(img_save_location, segment_dataset[0])
+  save_arr(out_save_location, segment_dataset[1])
+
+
+def populate_segments(upper_bound, dataset_type, segment_type, segment):
+  """
+  upper_bound (int): This is the last number in the longer list of images that is extracted by this func
+  dataset_type: "50-50, 70-30, 80-20, 90-10" based on the current type that is being downloaded
+  segment_type: "train | test" based on the dataset type
+  segment: this is the sub segment of the list that is being operated on
+  """
+  imgs = []
+  outs = []
+
+  for i in tqdm(len(segment)):
+    img_arr = extract_img(segment.iloc[i]["img_url"])
+
+    if img_arr is not None:
+      imgs.append(img_arr)
+      outs.append(np.eye(2)[segment.iloc[i]["is_explicit"]])
+  
+  segment_dataset = (np.array(imgs), np.array(outs))
+  save_segment(upper_bound, dataset_type, segment_type, segment_dataset)
+
+
 if __name__ == "__main__":
   datasets = ["50-50"]
 
   for dataset_type in datasets:
-    populate_dataset(dataset_type)
+    # populate_dataset(dataset_type)
+    train_csv = pd.read_csv(f"data/processed-data/{dataset_type}/train.csv")
+    test_csv = pd.read_csv(f"data/processed-data/{dataset_type}/test.csv")
+
+    populate_segments(99, dataset_type, "train", train_csv.iloc[0:100])
+    populate_segments(99, dataset_type, "test", test_csv.iloc[0:100])
