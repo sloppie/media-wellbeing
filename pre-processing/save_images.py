@@ -11,9 +11,11 @@ from tqdm import tqdm
 # Function extracts the image from a GIF URL that is provided in the parameter
 # This is done by extracting the first frame from the image
 def extract_img_from_gif(img_url):
+  print(f"Extracting GIF: {img_url}")
   pil_img = Image.open(urllib.request.urlopen(img_url))
   pil_img.seek(0)
   rgb_img = pil_img.convert("RGB")
+  pil_img.close()
   
   return np.array(rgb_img)
 
