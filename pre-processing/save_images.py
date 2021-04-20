@@ -1,3 +1,5 @@
+import concurrent.futures as cf
+
 import torch
 import torchvision.transforms as transforms
 import numpy as np
@@ -156,6 +158,11 @@ if __name__ == "__main__":
     # populate_dataset(dataset_type)
     train_csv = pd.read_csv(f"data/processed-data/{dataset_type}/train.csv")
     test_csv = pd.read_csv(f"data/processed-data/{dataset_type}/test.csv")
-
-    populate_segments(99, dataset_type, "train", train_csv.iloc[0:100])
-    populate_segments(99, dataset_type, "test", test_csv.iloc[0:100])
+    
+    with cf.ThreadPoolExecutor() as download_executor:
+      # train set
+      download_executor.submit(populate_segments, 99, dataset_type, "train", train_csv.iloc[0:100])
+      download_executor.submit(populate_segments, 199, dataset_type, "train", train_csv.iloc[100:200])
+      download_executor.submit(populate_segments, 299, dataset_type, "train", train_csv.iloc[200:300])
+      # populate_segments(99, dataset_type, "train", train_csv.iloc[0:100])
+      # populate_segments(99, dataset_type, "test", test_csv.iloc[0:100])
