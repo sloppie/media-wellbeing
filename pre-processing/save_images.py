@@ -158,7 +158,7 @@ def download_images(dataset_split_type, data_csv, dataset_type):
   with cf.ThreadPoolExecutor() as download_executor:
     # train set
     i = 0
-    while i + 500 <= 500:
+    while i + 500 <= len(data_csv):
       i += 500 # create the upperbound
 
       download_executor.submit(
@@ -170,13 +170,14 @@ def download_images(dataset_split_type, data_csv, dataset_type):
       )
     
     # download the final segment that may not be in reach by the upper while loop
-    if i < len(data_csv):
+    if (len(data_csv) % 500) > 0:
+      i += 500
       download_executor.submit(
         populate_segments,  # function
         i - 1,  # upperbound
         dataset_split_type,  # dataset split type
         dataset_type,  # type of the dataset being created
-        data_csv.iloc[(i -500): i],  # segmenting to the section being worked on
+        data_csv.iloc[(i -500): len(data_csv)],  # segmenting to the section being worked on
       )
 
 
@@ -201,8 +202,8 @@ def assemble_dataset(dataset_split_type, train_csv_len, test_csv_len):
     segment_files = []  # append all the segment files here
 
     i = 0  # monitoring counter
-    while i + 100 <= upper:  # fetch all the files part of the segmenting
-      i += 100
+    while i + 500 <= upper:  # fetch all the files part of the segmenting
+      i += 500
       segment_files.append(f"{dataset_type}-{i - 1}-{data_type}.npy")
     
     # assemble
@@ -329,3 +330,6 @@ if __name__ == "__main__":
       download_images(dataset_split_type, test_csv, "test")
 
     print(f"Test Dataset with split: {dataset_split_type} download complete")
+
+    print("Assembling np arrays together...")
+    assemble_dataset(dataset_split_type, len(train_csv), len(test_csv))
