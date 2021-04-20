@@ -1,19 +1,21 @@
+import os
 import concurrent.futures as cf
+import re
 
-import torch
-import torchvision.transforms as transforms
-import numpy as np
-import pandas as pd
 import imageio
 from PIL import Image
 import urllib
+import numpy as np
+import pandas as pd
+import torch
+import torchvision.transforms as transforms
+
 from tqdm import tqdm, trange
 
 
 # Function extracts the image from a GIF URL that is provided in the parameter
 # This is done by extracting the first frame from the image
 def extract_img_from_gif(img_url):
-  print(f"Extracting GIF: {img_url}")
   pil_img = Image.open(urllib.request.urlopen(img_url))
   pil_img.seek(0)
   rgb_img = pil_img.convert("RGB")
@@ -151,18 +153,179 @@ def populate_segments(upper_bound, dataset_type, segment_type, segment):
   save_segment(upper_bound, dataset_type, segment_type, segment_dataset)
 
 
+def download_images(dataset_split_type, data_csv, dataset_type):
+  # Download training images
+  with cf.ThreadPoolExecutor() as download_executor:
+    # train set
+    i = 0
+    while i + 500 <= 500:
+      i += 500 # create the upperbound
+
+      download_executor.submit(
+        populate_segments,  # function
+        i - 1,  # upperbound
+        dataset_split_type,  # dataset split type
+        dataset_type,  # type of the dataset being created
+        data_csv.iloc[(i -500): i],  # segmenting to the section being worked on
+      )
+    
+    # download the final segment that may not be in reach by the upper while loop
+    if i < len(data_csv):
+      download_executor.submit(
+        populate_segments,  # function
+        i - 1,  # upperbound
+        dataset_split_type,  # dataset split type
+        dataset_type,  # type of the dataset being created
+        data_csv.iloc[(i -500): i],  # segmenting to the section being worked on
+      )
+
+
+def assemble_dataset(dataset_split_type, train_csv_len, test_csv_len):
+  assembly_folder = f"data/processed-data/{dataset_split_type}"
+  
+  def assemble(dataset_type, data_type, dataset_len):
+    """
+    This is is a helper function to assemble the data based on
+    dataset_type: this is either train or test data
+    data_type: this is either img data or out (expected output) data
+    dataset_len: this is the lenght of the combined csv that contained the urls
+    """
+    floored_upper = int(dataset_len / 500) * 500  # get all the expected segment numbers
+    upper = 0
+    if floored_upper < dataset_len:
+      upper = floored_upper + 500
+    else:
+      upper = floored_upper
+    
+    combined_dataset = []  # will contain all the np arrays combined
+    segment_files = []  # append all the segment files here
+
+    i = 0  # monitoring counter
+    while i + 100 <= upper:  # fetch all the files part of the segmenting
+      i += 100
+      segment_files.append(f"{dataset_type}-{i - 1}-{data_type}.npy")
+    
+    # assemble
+    for segment_file in segment_files:
+      with open(f"{assembly_folder}/{segment_file}", "rb") as opened_file:
+        np_data = np.load(opened_file)
+        combined_dataset.extend(np_data[:])  # get all as an array
+    
+    with open(f"{assembly_folder}/{dataset_type}-{data_type}.npy") as target_file:
+      np.save(target_file, np.array(combined_dataset))
+  
+  # train dataset
+  with cf.ThreadPoolExecutor() as export_executor:
+    export_executor.submit(assemble, "train", "img", train_csv_len)
+    export_executor.submit(assemble,"train", "out", train_csv_len)
+
+    export_executor.submit(assemble, "test", "img", test_csv_len)
+    export_executor.submit(assemble, "test", "out", test_csv_len)
+
+
+def attempt_recovery(dataset_split_type, dataset_type):
+  """ Triggers recovery protocol to prevent image redownload
+
+  Triggers recovery protocol to find the progress achieved by the previous download session.
+  Top prevent redownload of already downloaded images. Scans through looking for upperbounds
+  that have been acheived.
+
+  Once the iundownloaded segments are found, redownload commences for only those segments
+
+  Args:
+    dataset_split_type: specifies which folder to look into based on how the dataset is split
+  """
+  dataset_folder = f"data/processed-data/{dataset_split_type}"
+  dataset_csv = pd.read_csv(f"{dataset_folder}/{dataset_type}.csv")
+  dataset_len = len(dataset_csv)
+  # scan for remaining segments to download
+  folder_children = os.scandir(dataset_folder)
+  relevant_files = []  # will store the files that are of that category
+
+  for child in folder_children:
+    if re.search(f"{dataset_type}-\d+-img\.npy", child.name):
+      relevant_files.append(child)
+  
+  floored_upper = int(dataset_len / 500) * 500  # get all the expected segment numbers
+  upper = 0
+  if floored_upper < dataset_len:
+    upper = floored_upper + 500
+  else:
+    upper = floored_upper
+  
+  remaining_bounds = []  # stash the remaining bound after searching through
+
+  i = 0  # monitor bounds
+  while i + 500 <= upper:
+    i += 500
+    segment_file = f"{dataset_type}-{i - 1}-img.npy"
+    try:
+      relevant_files.index(segment_file)
+    except:
+      remaining_bounds.append(i - 1)
+  
+  with cf.ThreadPoolExecutor() as recovery_executor:
+    for bound in remaining_bounds:
+      recovery_executor.submit(
+        populate_segments,
+        bound,
+        dataset_split_type,
+        dataset_type,
+        dataset_csv[((i + 1) - 500), (i + 1)],  # segment data by boundng hundreds
+      )
+
+
+def is_salvagable(dataset_split_type, dataset_type):
+  """ Checks for salvagability of folder before forcing fresh download
+
+  This includes looking for already downloaded segment files in the respetive folder
+  This looks for folders with the segment file structure e.g.
+    For training data, the segment would be `train-99-img.npy`
+  
+  Args:
+    dataset_split_type: "50-50" | "70-30" | "80-20" | "909-10"
+    dataset_type: whether it is `"train"` or `"test"` data
+  
+  Returns:
+    bool: representing whether or not a segmented dataset was found
+  """
+  downloaded_segment_found = False
+  dataset_folder = f"data/processed-data/{dataset_split_type}"
+
+  # scan for remaining any previously downloaded segments
+  folder_children = os.scandir(dataset_folder)
+
+  # looking for the first file that fits the criteria. if any file is found that fits
+  # the below regular expression, we break out of the loop and attempt recovery
+  for child in folder_children:
+    if re.search(f"{dataset_type}-\d+-img\.npy", child.name):
+      downloaded_segment_found = True
+      break
+  
+  return downloaded_segment_found
+
+
+
 if __name__ == "__main__":
   datasets = ["50-50"]
 
-  for dataset_type in datasets:
-    # populate_dataset(dataset_type)
-    train_csv = pd.read_csv(f"data/processed-data/{dataset_type}/train.csv")
-    test_csv = pd.read_csv(f"data/processed-data/{dataset_type}/test.csv")
-    
-    with cf.ThreadPoolExecutor() as download_executor:
-      # train set
-      download_executor.submit(populate_segments, 99, dataset_type, "train", train_csv.iloc[0:100])
-      download_executor.submit(populate_segments, 199, dataset_type, "train", train_csv.iloc[100:200])
-      download_executor.submit(populate_segments, 299, dataset_type, "train", train_csv.iloc[200:300])
-      # populate_segments(99, dataset_type, "train", train_csv.iloc[0:100])
-      # populate_segments(99, dataset_type, "test", test_csv.iloc[0:100])
+  for dataset_split_type in datasets:
+    train_csv = pd.read_csv(f"data/processed-data/{dataset_split_type}/train.csv")
+    test_csv = pd.read_csv(f"data/processed-data/{dataset_split_type}/test.csv")
+
+    # check for salvagability before committing to a fresh download for both train and test
+    if is_salvagable(dataset_split_type, "train"):
+      print(f"Attempting Recovery for training data in {dataset_split_type}...")
+      attempt_recovery(dataset_split_type, "train")
+    else:
+      download_images(dataset_split_type, train_csv, "train")
+
+    print(f"Train Dataset with split: {dataset_split_type} download complete")
+
+    if is_salvagable(dataset_split_type, "test"):
+      print(f"Attempting Recovery for training data in {dataset_split_type}...")
+      attempt_recovery(dataset_split_type, "test")
+    else:
+      download_images(dataset_split_type, test_csv, "test")
+
+    print(f"Test Dataset with split: {dataset_split_type} download complete")
