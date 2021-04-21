@@ -149,7 +149,7 @@ def populate_segments(upper_bound, dataset_type, segment_type, segment):
   imgs = []
   outs = []
 
-  for i in trange(len(segment), desc=f"Segment from {upper_bound - 499} - {upper_bound}"):
+  for i in trange(len(segment), desc=f"{segment_type} Segment from {upper_bound - 499} - {upper_bound}"):
     img_arr = extract_img(segment.iloc[i]["img_link"])
 
     if img_arr is not None:
@@ -365,6 +365,22 @@ def is_salvagable(dataset_split_type, dataset_type):
   return downloaded_segment_found
 
 
+def is_complete(dataset_split_type, dataset_type):
+  """ Checks whether the files have already been downloaded and assembled
+  """
+  complete = False  # flag returned after scanning directory
+  target_folder = f"data/processed-data/{dataset_split_type}/{dataset_type}"
+  target_img_file = f"{target_folder}/train-img.npy"
+  # scan for folder children
+  folder_children = [child.name for child in os.scandir(target_folder)]
+  try:
+    folder_children.index("train-img.npy")
+    complete = True  # getting to this point means that the ndex was found
+  except:  # value not found
+    pass
+  
+  return complete
+
 
 if __name__ == "__main__":
   datasets = ["50-50"]
@@ -374,21 +390,26 @@ if __name__ == "__main__":
     test_csv = pd.read_csv(f"data/processed-data/{dataset_split_type}/test.csv")
 
     # check for salvagability before committing to a fresh download for both train and test
-    if is_salvagable(dataset_split_type, "train"):
+    if is_complete(dataset_split_type, "train"):
+      print("Dataset already downloaded")
+    elif is_salvagable(dataset_split_type, "train"):
       print(f"Attempting Recovery for training data in {dataset_split_type}...")
       attempt_recovery(dataset_split_type, "train")
+      print(f"Train Dataset with split: {dataset_split_type} download complete")
     else:
       download_images(dataset_split_type, train_csv, "train")
+      print(f"Train Dataset with split: {dataset_split_type} download complete")
 
-    print(f"Train Dataset with split: {dataset_split_type} download complete")
-
-    if is_salvagable(dataset_split_type, "test"):
+    if is_complete(dataset_split_type, "test"):
+      print("Dataset already downloaded")
+    elif is_salvagable(dataset_split_type, "test"):
       print(f"Attempting Recovery for training data in {dataset_split_type}...")
       attempt_recovery(dataset_split_type, "test")
+      print(f"Test Dataset with split: {dataset_split_type} download complete")
     else:
       download_images(dataset_split_type, test_csv, "test")
+      print(f"Test Dataset with split: {dataset_split_type} download complete")
 
-    print(f"Test Dataset with split: {dataset_split_type} download complete")
 
     print("Assembling np arrays together...")
     assemble_dataset(dataset_split_type, len(train_csv), len(test_csv))
