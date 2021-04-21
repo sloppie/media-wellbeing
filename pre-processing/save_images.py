@@ -35,8 +35,9 @@ def extract_img(img_url):
       img_np = extract_img_from_gif(img_url)  # get the fist frame of GIF
     else:
       img_np = img
-  except:
+  except Exception as exc:
     # Image is probably now a dead link or requires authentication to access
+    print(exc)
     not_fetched = True
   
   if not_fetched:
