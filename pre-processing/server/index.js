@@ -12,6 +12,7 @@ app.get("/", (request, response) => {
 app.get("/:dataset_type/:type", (request, response) => {
   const filename = (/\.npy/.test(request.params.type))?
       request.params.type: `${request.params.type}.npy`;
+  console.log(`Sending back: ${filename}`);
   const fileLocation = path.join(
       __dirname, "..", "data", "processed-data",
       request.params.dataset_type, filename);
