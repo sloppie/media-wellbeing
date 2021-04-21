@@ -149,7 +149,7 @@ def populate_segments(upper_bound, dataset_type, segment_type, segment):
   imgs = []
   outs = []
 
-  for i in trange(len(segment), desc=f"{segment_type} Segment from {upper_bound - 499} - {upper_bound}"):
+  for i in trange(len(segment), desc=f"{dataset_type}: {segment_type} Segment from {upper_bound - 499} - {upper_bound}"):
     img_arr = extract_img(segment.iloc[i]["img_link"])
 
     if img_arr is not None:
