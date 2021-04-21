@@ -196,10 +196,10 @@ def download_images(dataset_split_type, data_csv, dataset_type):
 
     for executor in cf.as_completed(thread_pool):
       try:
-        result = executor.result()
-        print(result)
-      except Exception as exc:
-        print(exc)
+        if executor.exception():
+          print(executor.exception())
+      except:
+        pass
 
 
 def assemble_dataset(dataset_split_type, train_csv_len, test_csv_len):
@@ -233,7 +233,7 @@ def assemble_dataset(dataset_split_type, train_csv_len, test_csv_len):
         np_data = np.load(opened_file)
         combined_dataset.extend(np_data[:])  # get all as an array
     
-    with open(f"{assembly_folder}/{dataset_type}-{data_type}.npy") as target_file:
+    with open(f"{assembly_folder}/{dataset_type}-{data_type}.npy", "wb") as target_file:
       np.save(target_file, np.array(combined_dataset))
 
       print("Purging segment files...")
