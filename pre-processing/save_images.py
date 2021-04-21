@@ -15,6 +15,8 @@ import torchvision.transforms as transforms
 
 from tqdm import tqdm, trange
 
+count = 0  # keep count of failed to download images
+
 
 # Function extracts the image from a GIF URL that is provided in the parameter
 # This is done by extracting the first frame from the image
@@ -44,6 +46,7 @@ def extract_img(img_url):
   except Exception as exc:
     # Image is probably now a dead link or requires authentication to access
     # print(exc)
+    count += 1
     not_fetched = True
   
   if not_fetched:
@@ -375,3 +378,5 @@ if __name__ == "__main__":
 
     print("Assembling np arrays together...")
     assemble_dataset(dataset_split_type, len(train_csv), len(test_csv))
+
+    print(f"Failed Image Count: {count}")
