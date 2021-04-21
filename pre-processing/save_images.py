@@ -152,33 +152,47 @@ def populate_segments(upper_bound, dataset_type, segment_type, segment):
   segment_dataset = (np.array(imgs), np.array(outs))
   save_segment(upper_bound, dataset_type, segment_type, segment_dataset)
 
+  return f"{upper_bound - 499} - {upper_bound} completed"
+
 
 def download_images(dataset_split_type, data_csv, dataset_type):
   # Download training images
+  thread_pool = []
   with cf.ThreadPoolExecutor() as download_executor:
     # train set
     i = 0
     while i + 500 <= len(data_csv):
       i += 500 # create the upperbound
 
-      download_executor.submit(
+      executor = download_executor.submit(
         populate_segments,  # function
         i - 1,  # upperbound
         dataset_split_type,  # dataset split type
         dataset_type,  # type of the dataset being created
         data_csv.iloc[(i -500): i],  # segmenting to the section being worked on
       )
+
+      thread_pool.append(executor)
     
     # download the final segment that may not be in reach by the upper while loop
     if (len(data_csv) % 500) > 0:
       i += 500
-      download_executor.submit(
+      executor = download_executor.submit(
         populate_segments,  # function
         i - 1,  # upperbound
         dataset_split_type,  # dataset split type
         dataset_type,  # type of the dataset being created
         data_csv.iloc[(i -500): len(data_csv)],  # segmenting to the section being worked on
       )
+
+      thread_pool.append(executor)
+
+      for executor in cf.as_completed(thread_pool):
+        try:
+          result = executor.result()
+          print(result)
+        except Exception as exc:
+          print(exc)
 
 
 def assemble_dataset(dataset_split_type, train_csv_len, test_csv_len):
@@ -265,24 +279,36 @@ def attempt_recovery(dataset_split_type, dataset_type):
     except:
       remaining_bounds.append(i - 1)
   
+  thread_pool = []
+  
   with cf.ThreadPoolExecutor() as recovery_executor:
     for bound in remaining_bounds:
       if bound + 1 <= dataset_len:
-        recovery_executor.submit(
+        populate_future = recovery_executor.submit(
           populate_segments,
           bound,
           dataset_split_type,
           dataset_type,
           dataset_csv.iloc[bound - 499: (bound + 1)],  # segment data by boundng hundreds
         )
+        thread_pool.append(populate_future)
       else:
-        recovery_executor.submit(
+        populate_future = recovery_executor.submit(
           populate_segments,
           bound,
           dataset_split_type,
           dataset_type,
           dataset_csv.iloc[bound - 499: dataset_len],  # segment data by boundng hundreds
         )
+        thread_pool.append(populate_future)
+      
+      for future_populate_segment in cf.as_completed(thread_pool):
+        try:
+          result = future_populate_segment.result()
+          print(result)
+        except Exception as exc:
+          print(future_populate_segment.exception())
+          
 
 
 def is_salvagable(dataset_split_type, dataset_type):
