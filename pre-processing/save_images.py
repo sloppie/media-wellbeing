@@ -386,7 +386,7 @@ def is_complete(dataset_split_type, dataset_type):
 
 
 if __name__ == "__main__":
-  datasets = ["50-50"]
+  datasets = ["50-50", "70-30", "80-20", "90-10"]
 
   for dataset_split_type in datasets:
     train_csv = pd.read_csv(f"data/processed-data/{dataset_split_type}/train.csv")
