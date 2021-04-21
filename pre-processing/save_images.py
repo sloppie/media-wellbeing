@@ -273,7 +273,7 @@ def attempt_recovery(dataset_split_type, dataset_type):
           bound,
           dataset_split_type,
           dataset_type,
-          dataset_csv.iloc[bound - 499: (i + 1)],  # segment data by boundng hundreds
+          dataset_csv.iloc[bound - 499: (bound + 1)],  # segment data by boundng hundreds
         )
       else:
         recovery_executor.submit(
