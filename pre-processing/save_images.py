@@ -235,14 +235,31 @@ def assemble_dataset(dataset_split_type, train_csv_len, test_csv_len):
     
     with open(f"{assembly_folder}/{dataset_type}-{data_type}.npy") as target_file:
       np.save(target_file, np.array(combined_dataset))
+
+      print("Purging segment files...")
+      for segment_file in tqdm(segment_files):
+        try:
+          os.remove(f"{assembly_folder/{segment_file}}")
+        except:
+          pass
+  
+  executor_thread_pool = []
   
   # train dataset
   with cf.ThreadPoolExecutor() as export_executor:
-    export_executor.submit(assemble, "train", "img", train_csv_len)
-    export_executor.submit(assemble,"train", "out", train_csv_len)
+    executor_thread_pool.append(export_executor.submit(assemble, "train", "img", train_csv_len))
+    executor_thread_pool.append(export_executor.submit(assemble,"train", "out", train_csv_len))
 
-    export_executor.submit(assemble, "test", "img", test_csv_len)
-    export_executor.submit(assemble, "test", "out", test_csv_len)
+    executor_thread_pool.append(export_executor.submit(assemble, "test", "img", test_csv_len))
+    executor_thread_pool.append(export_executor.submit(assemble, "test", "out", test_csv_len))
+  
+    # wait for completion and get all the exceptions if there exists any
+    for executor_thread in cf.as_completed(executor_thread_pool):
+      try:
+        if executor_thread.exception():
+          print(executor_thread.exception())
+      except:
+        pass
 
 
 def attempt_recovery(dataset_split_type, dataset_type):
