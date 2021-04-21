@@ -245,7 +245,7 @@ def attempt_recovery(dataset_split_type, dataset_type):
 
   for child in folder_children:
     if re.search(f"{dataset_type}-\d+-img\.npy", child.name):
-      relevant_files.append(child)
+      relevant_files.append(child.name)
   
   floored_upper = int(dataset_len / 500) * 500  # get all the expected segment numbers
   upper = 0
