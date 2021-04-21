@@ -267,13 +267,22 @@ def attempt_recovery(dataset_split_type, dataset_type):
   
   with cf.ThreadPoolExecutor() as recovery_executor:
     for bound in remaining_bounds:
-      recovery_executor.submit(
-        populate_segments,
-        bound,
-        dataset_split_type,
-        dataset_type,
-        dataset_csv.iloc[((i + 1) - 500), (i + 1)],  # segment data by boundng hundreds
-      )
+      if bound + 1 <= dataset_len:
+        recovery_executor.submit(
+          populate_segments,
+          bound,
+          dataset_split_type,
+          dataset_type,
+          dataset_csv.iloc[bound - 499: (i + 1)],  # segment data by boundng hundreds
+        )
+      else:
+        recovery_executor.submit(
+          populate_segments,
+          bound,
+          dataset_split_type,
+          dataset_type,
+          dataset_csv.iloc[bound - 499: dataset_len],  # segment data by boundng hundreds
+        )
 
 
 def is_salvagable(dataset_split_type, dataset_type):
