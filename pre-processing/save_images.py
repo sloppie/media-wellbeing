@@ -51,7 +51,7 @@ def extract_img(img_url):
   # Make sure that the image is set up in that, the width is always longer than
   # the height.
   # This means rotating the image is need be
-  img_tensor = torch.from_numpy(img_np)
+  img_tensor = torch.from_numpy(img_np.copy())
   img_tensor = img_tensor.permute(2, 0, 1)
   if img_tensor.shape[1] > img_tensor.shape[2]:
     img_tensor = img_tensor.permute(0, 2, 1)
