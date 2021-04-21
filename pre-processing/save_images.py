@@ -2,9 +2,12 @@ import os
 import concurrent.futures as cf
 import re
 
+from io import BytesIO
+
 import imageio
 from PIL import Image
 import urllib
+import requests
 import numpy as np
 import pandas as pd
 import torch
@@ -30,7 +33,10 @@ def extract_img(img_url):
   img_np = None
   not_fetched = False
   try:
-    img = imageio.imread(imageio.core.urlopen(img_url).read())
+    # naively look for GIFs
+    from_url = requests.get(img_url, stream=True)
+    # img = imageio.imread(imageio.core.urlopen(img_url).read())
+    img = imageio.imread(BytesIO(from_url.raw.read()))
     if (img.shape[2] == 4):
       img_np = extract_img_from_gif(img_url)  # get the fist frame of GIF
     else:
