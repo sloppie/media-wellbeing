@@ -239,7 +239,7 @@ def assemble_dataset(dataset_split_type, train_csv_len, test_csv_len):
       print("Purging segment files...")
       for segment_file in tqdm(segment_files):
         try:
-          os.remove(f"{assembly_folder/{segment_file}}")
+          os.remove(f"{assembly_folder}/{segment_file}")
         except:
           pass
   
