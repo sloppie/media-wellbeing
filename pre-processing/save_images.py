@@ -34,7 +34,7 @@ def extract_img(img_url):
   not_fetched = False
   try:
     # naively look for GIFs
-    from_url = requests.get(img_url, stream=True)
+    from_url = requests.get(img_url, stream=True, timeout=10)
     # img = imageio.imread(imageio.core.urlopen(img_url).read())
     img = imageio.imread(BytesIO(from_url.raw.read()))
     if (img.shape[2] == 4):
