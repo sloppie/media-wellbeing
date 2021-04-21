@@ -151,10 +151,13 @@ def populate_segments(upper_bound, dataset_type, segment_type, segment):
 
   for i in trange(len(segment), desc=f"Segment from {upper_bound - 499} - {upper_bound}"):
     img_arr = extract_img(segment.iloc[i]["img_link"])
+    print(segment.iloc[i]["img_link"])
 
     if img_arr is not None:
       imgs.append(img_arr)
       outs.append(np.eye(2)[segment.iloc[i]["is_explicit"]])
+    else:
+      print("Not Downloaded")
   
   segment_dataset = (np.array(imgs), np.array(outs))
   save_segment(upper_bound, dataset_type, segment_type, segment_dataset)
@@ -308,6 +311,7 @@ def attempt_recovery(dataset_split_type, dataset_type):
           dataset_csv.iloc[bound - 499: dataset_len],  # segment data by boundng hundreds
         )
         thread_pool.append(populate_future)
+      break
 
     for future_populate_segment in cf.as_completed(thread_pool):
       try:
