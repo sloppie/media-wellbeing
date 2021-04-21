@@ -202,7 +202,7 @@ def download_images(dataset_split_type, data_csv, dataset_type):
         pass
 
 
-def assemble_dataset(dataset_split_type, train_csv_len, test_csv_len):
+def assemble_dataset(dataset_split_type, train_csv_len, test_csv_len, train_assembled, test_assembled):
   assembly_folder = f"data/processed-data/{dataset_split_type}"
   
   def assemble(dataset_type, data_type, dataset_len):
@@ -247,11 +247,15 @@ def assemble_dataset(dataset_split_type, train_csv_len, test_csv_len):
   
   # train dataset
   with cf.ThreadPoolExecutor() as export_executor:
-    executor_thread_pool.append(export_executor.submit(assemble, "train", "img", train_csv_len))
-    executor_thread_pool.append(export_executor.submit(assemble,"train", "out", train_csv_len))
+    if not train_assembled:
+      print(f"Assembling {dataset_split_type} train dataset")
+      executor_thread_pool.append(export_executor.submit(assemble, "train", "img", train_csv_len))
+      executor_thread_pool.append(export_executor.submit(assemble,"train", "out", train_csv_len))
 
-    executor_thread_pool.append(export_executor.submit(assemble, "test", "img", test_csv_len))
-    executor_thread_pool.append(export_executor.submit(assemble, "test", "out", test_csv_len))
+    if not test_assembled:
+      print(f"Assembling {dataset_split_type} test dataset")
+      executor_thread_pool.append(export_executor.submit(assemble, "test", "img", test_csv_len))
+      executor_thread_pool.append(export_executor.submit(assemble, "test", "out", test_csv_len))
   
     # wait for completion and get all the exceptions if there exists any
     for executor_thread in cf.as_completed(executor_thread_pool):
@@ -369,12 +373,11 @@ def is_complete(dataset_split_type, dataset_type):
   """ Checks whether the files have already been downloaded and assembled
   """
   complete = False  # flag returned after scanning directory
-  target_folder = f"data/processed-data/{dataset_split_type}/{dataset_type}"
-  target_img_file = f"{target_folder}/train-img.npy"
+  target_folder = f"data/processed-data/{dataset_split_type}"
   # scan for folder children
   folder_children = [child.name for child in os.scandir(target_folder)]
   try:
-    folder_children.index("train-img.npy")
+    folder_children.index(f"{dataset_type}-img.npy")
     complete = True  # getting to this point means that the ndex was found
   except:  # value not found
     pass
@@ -390,8 +393,11 @@ if __name__ == "__main__":
     test_csv = pd.read_csv(f"data/processed-data/{dataset_split_type}/test.csv")
 
     # check for salvagability before committing to a fresh download for both train and test
-    if is_complete(dataset_split_type, "train"):
-      print("Dataset already downloaded")
+    train_assembled = is_complete(dataset_split_type, "train")
+    test_assembled = is_complete(dataset_split_type, "test")
+
+    if train_assembled:
+      print(f"{dataset_split_type} train dataset already downloaded")
     elif is_salvagable(dataset_split_type, "train"):
       print(f"Attempting Recovery for training data in {dataset_split_type}...")
       attempt_recovery(dataset_split_type, "train")
@@ -400,8 +406,8 @@ if __name__ == "__main__":
       download_images(dataset_split_type, train_csv, "train")
       print(f"Train Dataset with split: {dataset_split_type} download complete")
 
-    if is_complete(dataset_split_type, "test"):
-      print("Dataset already downloaded")
+    if test_assembled:
+      print(f"{dataset_split_type} test dataset already downloaded")
     elif is_salvagable(dataset_split_type, "test"):
       print(f"Attempting Recovery for training data in {dataset_split_type}...")
       attempt_recovery(dataset_split_type, "test")
@@ -410,6 +416,4 @@ if __name__ == "__main__":
       download_images(dataset_split_type, test_csv, "test")
       print(f"Test Dataset with split: {dataset_split_type} download complete")
 
-
-    print("Assembling np arrays together...")
-    assemble_dataset(dataset_split_type, len(train_csv), len(test_csv))
+    assemble_dataset(dataset_split_type, len(train_csv), len(test_csv), train_assembled, test_assembled)
