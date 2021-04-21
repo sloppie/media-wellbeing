@@ -187,12 +187,12 @@ def download_images(dataset_split_type, data_csv, dataset_type):
 
       thread_pool.append(executor)
 
-      for executor in cf.as_completed(thread_pool):
-        try:
-          result = executor.result()
-          print(result)
-        except Exception as exc:
-          print(exc)
+    for executor in cf.as_completed(thread_pool):
+      try:
+        result = executor.result()
+        print(result)
+      except Exception as exc:
+        print(exc)
 
 
 def assemble_dataset(dataset_split_type, train_csv_len, test_csv_len):
@@ -301,13 +301,13 @@ def attempt_recovery(dataset_split_type, dataset_type):
           dataset_csv.iloc[bound - 499: dataset_len],  # segment data by boundng hundreds
         )
         thread_pool.append(populate_future)
-      
-      for future_populate_segment in cf.as_completed(thread_pool):
-        try:
-          result = future_populate_segment.result()
-          print(result)
-        except Exception as exc:
-          print(future_populate_segment.exception())
+
+    for future_populate_segment in cf.as_completed(thread_pool):
+      try:
+        result = future_populate_segment.result()
+        print(result)
+      except Exception as exc:
+        print(future_populate_segment.exception())
           
 
 
