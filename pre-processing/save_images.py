@@ -43,7 +43,7 @@ def extract_img(img_url):
       img_np = img
   except Exception as exc:
     # Image is probably now a dead link or requires authentication to access
-    print(exc)
+    # print(exc)
     not_fetched = True
   
   if not_fetched:
