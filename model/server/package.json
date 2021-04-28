@@ -1,0 +1,19 @@
+{
+  "name": "model-server",
+  "version": "1.0.0",
+  "description": "Acts as the server to the model and connecting clients to the machine learning model",
+  "main": "index.js",
+  "repository": "https://github.com/sloppie/media-wellbeing",
+  "author": "sloppie",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "express": "^4.17.1",
+    "google-protobuf": "^3.15.8",
+    "multer": "^1.4.2",
+    "socket.io-client": "^4.0.1"
+  },
+  "scripts": {
+    "start": "node index"
+  }
+}

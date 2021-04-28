@@ -1,0 +1,27 @@
+syntax = "proto2";
+
+package ecd;
+
+message ModelArgs {
+  // the tyoe of media to help the mode know how to pre-process the data.
+  // 1 - photo
+  // 2 - GIF
+  // 3 -video
+  required int32 media_type = 1;
+  // name of the file that will be fetched for pre-processing by the model
+  required string file_name = 2; // always unique
+  // 1 - Check if image has explicit content or not
+  // 2 - Parse the image and remove the explicit content from it
+  required int32 request_type = 3;
+}
+
+message ModelResponse {
+  // The response as to whether the image is explicit or not
+  // 0 - the image is not explicit
+  // 1 - the image is explicit
+  required int32 is_explicit = 1;
+  required string file_name = 2; // used as a reference key to the ModelArgs ProtoBuff
+  // 1 - Check if image has explicit content or not
+  // 2 - Parse the image and remove the explicit content from it
+  required int32 request_type = 3;
+}

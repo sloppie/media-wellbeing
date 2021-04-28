@@ -1,1 +1,8 @@
 **/*.txt
+.venv
+.vscode
+**/.ipynb_checkpoints
+__pycache__
+**/node_modules/*
+image-buffer
+out-buffer
