@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/user_activity_item"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp">
+        <ImageView
+            android:id="@+id/user_activity_image"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_profile"
+            android:layout_marginEnd="8dp" />
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent">
+            <TextView
+                android:id="@+id/user_activity_tile"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Text View Title"/>
+            <TextView
+                android:id="@+id/user_activity_description"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Text View Description"/>
+        </LinearLayout>
+    </LinearLayout>
+    <LinearLayout
+        android:id="@+id/review_badge"
+        android:layout_width="wrap_content"
+        android:layout_gravity="end"
+        android:gravity="center_vertical"
+        android:layout_marginEnd="16dp"
+        android:layout_height="match_parent">
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:background="#ff0000"/>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

@@ -162,6 +162,6 @@ def start_socket_connection():
 
 
 if __name__ == "__main__":
-  print(scan_image(1, f"image-buffer/test-img.jpg"))
-  print(scan_image(3, f"image-buffer/test-vid.mp4"))
-  # start_socket_connection()
+  # print(scan_image(1, f"image-buffer/test-img.jpg"))
+  # print(scan_image(3, f"image-buffer/test-vid.mp4"))
+  start_socket_connection()

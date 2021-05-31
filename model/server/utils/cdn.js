@@ -19,7 +19,9 @@ function getStorage(fileLocation, fileName, setContentType) {
       let storedName = fileName;
       console.log(`Storing file name: ${fileName}`)
       if (file.mimetype) {
-        setContentType(file.mimetype); // set the content type to allow full population of the ProtoBuff
+        if (setContentType) {
+          setContentType(file.mimetype); // set the content type to allow full population of the ProtoBuff
+        }
         storedName += `.${file.mimetype.split("/")[1]}`;
       }
 

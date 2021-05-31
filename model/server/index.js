@@ -3,14 +3,18 @@ const path = require('path');
 const express = require('express');
 const multer = require('multer');
 const bodyParser = require('body-parser');
+const cors = require('cors');
 
 // utils
 const SockBuffer = require('./utils/sock-buffer');
 const ModelServerSock = require('./utils/model-server-sock');
+const {getStorage} = require('./utils/cdn');
 
 // proto-buffers
 const modelio = require('./proto-buffers/modelio_pb');
-const {getStorage} = require('./utils/cdn');
+
+// middlware routers
+const api = require('./api');
 
 const HOST = '127.0.0.1';
 const PORT = 9000;
@@ -25,7 +29,13 @@ const app = express();
 // server middleware
 app.use(bodyParser.json({limit: "50mb"}));
 app.use(bodyParser.urlencoded({limit: "50mb", extended: false}));
+app.use(cors({
+  origin: "*", // allow from any origin to send requests to this sever
+  credentials: true,
+}));
 
+// routing middleware
+app.use("/api", api);
 
 // start socket connection on PORT and HOST
 net.createServer((socket) => {
@@ -57,8 +67,10 @@ app.get("/", (request, response) => {
   response.send("<h1>Hello World</h1>")
 });
 
-app.post('/ecd/scan/:user_id', (request, response) => {
-  const userId = request.params.user_id;
+
+app.post('/ecd/scan', (request, response) => {
+  console.log("Connection made by: " + request.ip);
+  const userId = request.query.user_id;
   let contentType = null;
   const setContentType = (mimetype) => {
     console.log(mimetype);
@@ -81,27 +93,37 @@ app.post('/ecd/scan/:user_id', (request, response) => {
     if (err) {
       console.log(err)
     } else {
-      // send out request to the model
-      /**@type {import('../utils/sock-buffer').ModelArgs} */
-      const modelArgs = new modelio.ModelArgs();
-      modelArgs.setFileName(request.file.filename);
-      modelArgs.setMediaType(contentType? contentType: 1);
-      // callback to be executed on successful response
-      const onResponse = (modelResponse) => {
-        console.log("Sending back response: " + modelResponse.getIsExplicit());
-        response.status(200)
-          .json({
-            isExplicit: `${modelResponse.getIsExplicit()}`,
-            file_name: request.file.filename,
-          });
-      };
-      sockBuffer.addRequest(modelArgs, onResponse);
+      try {
+        // send out request to the model
+        /**@type {import('../utils/sock-buffer').ModelArgs} */
+        const modelArgs = new modelio.ModelArgs();
+        modelArgs.setFileName(request.file.filename);
+        modelArgs.setMediaType(contentType? contentType: 1);
+        modelArgs.setRequestType(1);
+        // callback to be executed on successful response
+        const onResponse = (modelResponse) => {
+          console.log("Sending back response: " + modelResponse.getIsExplicit());
+          response
+            .status(200)
+            .json({
+              is_explicit: `${modelResponse.getIsExplicit()}`,
+              // file_name: request.file.filename,
+              file_name: request.query.file_id,
+            });
+        };
+        sockBuffer.addRequest(modelArgs, onResponse);
+
+      } catch (err) {
+        response
+          .status(500)
+          .json({message: "Internal Server Error Occured while handling request"});
+      }
     }
   });
 });
 
 
-app.get("/ecd/parse/:file_name", (request, response) => {
+app.get("/ecd/parse/:file_name/:file_id", (request, response) => {
   const parseArgs = new modelio.parseArgs();
   parseArgs.setFileName(request.params.file_name);
 
@@ -111,6 +133,46 @@ app.get("/ecd/parse/:file_name", (request, response) => {
   };
 
   sockBuffer.addParseRequest(onResponse);
+});
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////////////////
+
+app.post('/label', (request, response) => {
+  const userId = request.query.profile_id;
+  let contentType = null;
+  const setContentType = (mimetype) => {
+    if (/jpeg|jpg|png/g.test(mimetype)) {
+      contentType = 1;
+    } else if (/mp4/g.test(mimetype)) {
+      contentType = 3;
+    } else if (/gif/g.test(mimetype)) {
+      contentType = 2;
+    }
+  };
+
+  const fileName = `${userId}_${Date.now()}`;
+
+  const upload = multer({
+    storage: getStorage(
+      path.join(__dirname, "..", "activity-buffer"),
+      fileName,
+      setContentType
+    ),
+  }).single("file");
+
+  upload(request, response, (err) => {
+    if (err) {
+      console.log(err)
+    } else {
+      response.status(201)
+          .json({
+            file_name: request.file.filename,
+          });
+    }
+  });
 });
 
 app.listen(5000, () => {

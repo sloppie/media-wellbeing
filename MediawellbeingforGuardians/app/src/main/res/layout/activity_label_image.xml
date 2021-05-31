@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".LabelImage" >
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/label_image_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <ImageView
+            android:id="@+id/viewed_image"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/image_label_input_layout" />
+
+        <LinearLayout
+            android:id="@+id/image_label_input_layout"
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:paddingHorizontal="16dp"
+            app:layout_constraintTop_toBottomOf="@id/viewed_image"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/submit_label_button"
+            app:layout_constraintVertical_bias="0">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/image_label_chip_group"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleSelection="true"
+                app:selectionRequired="true" >
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/is_explicit_chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:checkedIcon="@drawable/ic_explicit"
+                    android:checkable="true"
+                    android:text="@string/is_explicit_check" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/is_neutral_chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:checkedIcon="@drawable/ic_add"
+                    android:checkable="true"
+                    android:text="@string/is_neutral_check"/>
+
+            </com.google.android.material.chip.ChipGroup>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/submit_label_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Label Image"
+            app:layout_constraintTop_toBottomOf="@id/image_label_input_layout"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

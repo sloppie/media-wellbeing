@@ -1,0 +1,34 @@
+<resources>
+    <string name="app_name">Mediawellbeing - for Guardians</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="title_activity_login">Login</string>
+    <string name="prompt_email">Email</string>
+    <string name="prompt_password">Password</string>
+    <string name="action_sign_in">Sign in or register</string>
+    <string name="action_sign_in_short">Sign in</string>
+    <string name="welcome">"Welcome !"</string>
+    <string name="invalid_username">Not a valid username</string>
+    <string name="invalid_password">Password must be >5 characters</string>
+    <string name="login_failed">"Login failed"</string>
+    <string name="title_activity_sign_up">Sign Up</string>
+    <string name="select_profile">Press to view profile activity</string>
+    <string name="prompt_name">Name</string>
+    <string name="prompt_password_reenter">Re-enter password</string>
+    <string name="user_log_activity">Media Consumption Activity</string>
+    <string name="label_image_activity">Label image</string>
+    <string name="preferences_activity">Settings</string>
+    <string name="profiles_activity">Created profiles</string>
+    <string name="splash_screen_activity">Media Wellbeing - for Parents</string>
+    <string name="already_have_an_account">Already have an account?</string>
+    <string name="log_in">Log in</string>
+    <string name="do_not_have_an_account">Do not have an account?</string>
+    <string name="sign_up">sign up</string>
+    <string name="action_log_in">Log in</string>
+    <string name="prompt_name_of_child">Name of child</string>
+    <string name="link_child_app">Link</string>
+    <string name="scan_qr_code">Open the Child companion app and scan the QR code below</string>
+    <string name="close_link_sheet">Close link sheet</string>
+    <string name="is_explicit_check">is explicit</string>
+    <string name="is_neutral_check">is neutral</string>
+</resources>

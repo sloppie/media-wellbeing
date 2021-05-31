@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">Media Wellbeing</string>
+    <string name="accessibility_permission_description">This app uses this permission to monitor the activities being carrier out within certain apps</string>
+    <string name="monitor_channel_name">Monitor Service</string>
+    <string name="monitor_channel_description">This Notification is used to indicate that the monitoring service is on</string>
+    <string name="monitor_notif_big_text">Media Wellbeing is currently monitoring the content being displayed on this window</string>
+    <string name="monitor_notif_small_text">Media Wellbeing is actively Monitoring content</string>
+    <string name="monitor_notif_title">Monitor Service Active</string>
+    <string name="storage_permission_title">Ask for Storage Permission</string>
+    <string name="storage_permission_rationale">
+        In order to display all scannable media files, the Media Wellbeing App requires permission to access internal storage
+    </string>
+    <string name="grant_permission">Grant</string>
+    <string name="revoke_permission">Cancel</string>
+    <string name="permission_not_granted">Permission not granted</string>
+    <string name="fetching_stored_images">Fetching stored images</string>
+    <string name="scanning_image">Scanning for Explicit content</string>
+    <string name="contains_explicit_content">Image may contain explicit content</string>
+    <string name="contains_neutral_content">Image is safe for viewing</string>
+    <string name="image_content_description">Image fetched from your local device images</string>
+    <string name="err_scanning_image">Failed to load response. Press to retry</string>
+    <string name="dialog_warning">By opening this image, you consent to having the image sent to the parent monitor device linked to this application. The parent monitor will be notified and will be able to review this image</string>
+    <string name="camera_permission_title">Allow MediaWellbeing to Use Camera</string>
+    <string name="camera_permission_rationale">MediaWellbeing uses the camera to scan for the QRCode from the parent application</string>
+    <string name="error_initialising_camera">Error initialising camera. Please grant camera permission to app</string>
+    <string name="creating_profile">creating user profile</string>
+    <string name="viewing_not_allowed">This image has been reviewed by the guardian and found to be explicit. As such, it can no longer be viewed by you</string>
+    <string name="dismiss">Dismiss</string>
+</resources>
