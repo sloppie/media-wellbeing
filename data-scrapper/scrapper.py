@@ -147,7 +147,13 @@ def set_image_size(web_driver):
         anchor_elements = WebDriverWait(modal_dropdown, timeout=15).until(
             lambda d: modal_dropdown.find_elements_by_tag_name("a")
         )
+
+        # Makes sure the modal dropdown is displayed before attempting to continue
+        while not modal_dropdown.is_displayed():
+            time.sleep(0.2)
+
         for anchor_element in anchor_elements:
+            print(f"anchor_element.text : {anchor_element.text}")
             if anchor_element.text == "Medium":
                 print("Size of photos set to medium")
                 anchor_element.click()
@@ -175,6 +181,10 @@ def set_image_type(web_driver):
         type_dropdown.click()  # open the modal
         time.sleep(1)
         anchor_elements = web_driver.find_elements_by_class_name("js-dropdown-items")
+
+        # Makes sure the type dropdown is displayed before attempting to continue
+        while not type_dropdown.is_displayed():
+            time.sleep(0.2)
 
         for anchor_element in anchor_elements:
             if anchor_element.text == "Photograph":
@@ -212,7 +222,13 @@ def set_moderation(web_driver, moderation_type):
             lambda d: web_driver.find_element_by_class_name("modal__list")
         )
         anchor_elements = modal_list.find_elements_by_tag_name("a")
+
+        # Makes sure the modal list is displayed before attempting to continue
+        while not modal_list.is_displayed():
+            time.sleep(0.2)
+
         for anchor_element in anchor_elements:
+            print(f"anchor_element {anchor_element.text}")
             if re.search(moderation_type, anchor_element.text):
                 anchor_element.click()
                 print(f"SafeSearch set to: {moderation_type}")
